@@ -10,7 +10,11 @@ datasource db {
 enum Role {
   CUSTOMER
   ADMIN
+  SEKRETARIS
+  BENDAHARA
   CONSULTANT
+  PARALEGAL
+  PENGAWAS
 }
 enum AuthProvider {
   CREDENTIALS
@@ -59,6 +63,7 @@ model User {
   updatedAt DateTime @updatedAt
   consultantProfile ConsultantProfile?
   casesAsClient Case[] @relation("ClientCases")
+  assignedCasesAsParalegal Case[] @relation("ParalegalCases")
   messages Message[]
   notifications Notification[]
   documents Document[] @relation("UploadedDocuments")
@@ -105,7 +110,17 @@ model Case {
   powerOfAttorneyUrl String?
   consultationNotes String? @db.Text
   litigationStage String?
+  registrationNumber String?
+  bagkNumber String?
+  bagkNotes String? @db.Text
+  conflictOfInterestCheck Boolean @default(false)
+  assignedParalegalId String?
+  paralegal User? @relation("ParalegalCases", fields: [assignedParalegalId], references: [id])
+  dossierNumber String?
+  isArchived Boolean @default(false)
+  archivedAt DateTime?
   hearings CaseHearing[]
+  expenses CaseExpense[]
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   documents Document[]
@@ -115,6 +130,7 @@ model Case {
   @@index([serviceType])
   @@index([clientId])
   @@index([consultantId])
+  @@index([assignedParalegalId])
 }
 
 model Document {
@@ -194,4 +210,30 @@ model CaseHearing {
   createdAt DateTime @default(now())
   @@index([caseId])
 }
+
+model CaseExpense {
+  id String @id @default(cuid())
+  caseId String
+  case Case @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  amount Float
+  category String
+  description String
+  receiptUrl String?
+  createdById String
+  createdAt DateTime @default(now())
+  @@index([caseId])
+}
+
+model FinancialRecord {
+  id String @id @default(cuid())
+  type String // INCOME | EXPENSE
+  category String
+  amount Float
+  description String
+  proofUrl String?
+  date DateTime @default(now())
+  recordedBy String?
+  createdAt DateTime @default(now())
+}
+
 

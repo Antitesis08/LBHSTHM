@@ -41,17 +41,33 @@ export async function middleware(request) {
     return NextResponse.redirect(new URL('/login', request.url));
   }
 
-  // Role‑based checks for the three main namespaces
+  // Role‑based checks for namespaces
   if (pathname.startsWith('/customer')) {
     if (user.role !== 'CUSTOMER' && user.role !== 'ADMIN') {
       return NextResponse.redirect(new URL('/unauthorized', request.url));
     }
   } else if (pathname.startsWith('/consultant')) {
-    if (user.role !== 'CONSULTANT' && user.role !== 'ADMIN') {
+    if (user.role !== 'CONSULTANT' && user.role !== 'ADMIN' && user.role !== 'PARALEGAL') {
       return NextResponse.redirect(new URL('/unauthorized', request.url));
     }
   } else if (pathname.startsWith('/admin')) {
     if (user.role !== 'ADMIN') {
+      return NextResponse.redirect(new URL('/unauthorized', request.url));
+    }
+  } else if (pathname.startsWith('/sekretaris')) {
+    if (user.role !== 'SEKRETARIS' && user.role !== 'ADMIN') {
+      return NextResponse.redirect(new URL('/unauthorized', request.url));
+    }
+  } else if (pathname.startsWith('/bendahara')) {
+    if (user.role !== 'BENDAHARA' && user.role !== 'ADMIN') {
+      return NextResponse.redirect(new URL('/unauthorized', request.url));
+    }
+  } else if (pathname.startsWith('/paralegal')) {
+    if (user.role !== 'PARALEGAL' && user.role !== 'CONSULTANT' && user.role !== 'ADMIN') {
+      return NextResponse.redirect(new URL('/unauthorized', request.url));
+    }
+  } else if (pathname.startsWith('/pengawas')) {
+    if (user.role !== 'PENGAWAS' && user.role !== 'ADMIN') {
       return NextResponse.redirect(new URL('/unauthorized', request.url));
     }
   }
@@ -62,5 +78,13 @@ export async function middleware(request) {
 
 // Apply middleware only to protected route groups
 export const config = {
-  matcher: ['/customer/:path*', '/consultant/:path*', '/admin/:path*'],
+  matcher: [
+    '/customer/:path*',
+    '/consultant/:path*',
+    '/admin/:path*',
+    '/sekretaris/:path*',
+    '/bendahara/:path*',
+    '/paralegal/:path*',
+    '/pengawas/:path*',
+  ],
 };

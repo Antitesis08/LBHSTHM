@@ -2,9 +2,9 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { FileCheck, UserPlus, XCircle, Clock, CheckCircle2, AlertTriangle, FileText, Upload } from 'lucide-react';
+import { FileCheck, UserPlus, XCircle, Clock, CheckCircle2, AlertTriangle, FileText, Upload, GraduationCap } from 'lucide-react';
 
-export default function AdminCaseActions({ caseData, consultants }) {
+export default function AdminCaseActions({ caseData, consultants, paralegals = [] }) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [feedback, setFeedback] = useState({ text: '', type: 'info' });
@@ -16,6 +16,10 @@ export default function AdminCaseActions({ caseData, consultants }) {
   // Assignment State
   const [selectedConsultantId, setSelectedConsultantId] = useState(caseData.consultant?.id || '');
   const [showReassign, setShowReassign] = useState(false);
+
+  // Paralegal Assignment State
+  const [selectedParalegalId, setSelectedParalegalId] = useState(caseData.paralegal?.id || '');
+  const [assignedParalegal, setAssignedParalegal] = useState(caseData.paralegal || null);
 
   // ACC + Legal Opinion State
   const [showAccModal, setShowAccModal] = useState(false);
@@ -138,6 +142,37 @@ export default function AdminCaseActions({ caseData, consultants }) {
 
       notify('Konsultan berhasil ditugaskan. Kasus beralih ke status DITUGASKAN.', 'success');
       setShowReassign(false);
+      router.refresh();
+    } catch (err) {
+      notify(err.message || 'Terjadi kesalahan.', 'error');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // 4. Action: Tugaskan Mahasiswa Praktikan (Paralegal)
+  const handleAssignParalegal = async (e) => {
+    e?.preventDefault();
+    if (!selectedParalegalId) {
+      notify('Pilih mahasiswa praktikan (paralegal) terlebih dahulu.', 'error');
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const res = await fetch('/api/paralegal/cases', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ caseId: caseData.id, paralegalId: selectedParalegalId }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || 'Gagal menugaskan paralegal.');
+      }
+
+      const assigned = paralegals.find((p) => p.id === selectedParalegalId);
+      setAssignedParalegal(assigned || { name: 'Mahasiswa Praktikan' });
+      notify('Mahasiswa praktikan berhasil ditugaskan untuk asistensi perkara (SOP Edukasi)!', 'success');
       router.refresh();
     } catch (err) {
       notify(err.message || 'Terjadi kesalahan.', 'error');
@@ -392,6 +427,61 @@ export default function AdminCaseActions({ caseData, consultants }) {
               </button>
             </form>
           )}
+        </div>
+      )}
+
+      {/* TAHAP PENUGASAN PARALEGAL (Klinik Hukum Edukasi STHM Lampiran C & D) */}
+      {!['DIAJUKAN', 'DITOLAK'].includes(caseData.status) && (
+        <div style={{ background: '#fff', borderRadius: 12, border: '1px solid #e0e7ff', padding: 20, marginBottom: 20 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 10 }}>
+            <div style={{ width: 32, height: 32, borderRadius: 8, background: '#eff6ff', color: '#1d4ed8', display: 'grid', placeItems: 'center' }}>
+              <GraduationCap size={18} />
+            </div>
+            <div>
+              <h3 style={{ fontSize: 15, fontWeight: 700, margin: 0 }}>Penugasan Mahasiswa Paralegal (Klinik Hukum)</h3>
+              <span style={{ fontSize: 11, color: '#64748b' }}>Asistensi telaah berkas & observasi persidangan per SOP Edukasi (Lampiran C & D)</span>
+            </div>
+          </div>
+
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12 }}>
+            <div>
+              <span style={{ fontSize: 12, color: '#475569' }}>
+                Paralegal Bertugas: <strong>{assignedParalegal?.name || 'Belum ditugaskan'}</strong> {assignedParalegal?.email ? `(${assignedParalegal.email})` : ''}
+              </span>
+            </div>
+
+            <form onSubmit={handleAssignParalegal} style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+              <select
+                value={selectedParalegalId}
+                onChange={(e) => setSelectedParalegalId(e.target.value)}
+                style={{ padding: '6px 10px', borderRadius: 6, border: '1px solid #cbd5e1', fontSize: 13, background: '#fff' }}
+              >
+                <option value="">-- Pilih Mahasiswa Praktikan --</option>
+                {paralegals.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.name} ({p.email})
+                  </option>
+                ))}
+              </select>
+
+              <button
+                type="submit"
+                disabled={loading || !selectedParalegalId}
+                style={{
+                  background: '#1e40af',
+                  color: '#fff',
+                  border: 'none',
+                  padding: '6px 12px',
+                  borderRadius: 6,
+                  fontSize: 12,
+                  fontWeight: 600,
+                  cursor: loading ? 'not-allowed' : 'pointer'
+                }}
+              >
+                Tugaskan Asisten
+              </button>
+            </form>
+          </div>
         </div>
       )}
 

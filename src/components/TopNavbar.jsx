@@ -40,21 +40,50 @@ export default function TopNavbar({ role, userName }) {
     router.refresh();
   };
 
+  const roleTitles = {
+    CUSTOMER: 'Klien Pemohon',
+    ADMIN: 'Kepala LKBH STHM',
+    SEKRETARIS: 'Sekretariat LKBH',
+    BENDAHARA: 'Bendahara LKBH',
+    CONSULTANT: 'Advokat / Konsultan',
+    PARALEGAL: 'Mahasiswa Praktikan',
+    PENGAWAS: 'Dewan Pengawas'
+  };
+
   let navItems = [];
   if (role === 'CUSTOMER') {
     navItems.push({ label: 'Kasus Saya', href: '/customer/dashboard', icon: ClipboardList });
     navItems.push({ label: 'Ajukan Bantuan', href: '/customer/pengajuan', icon: FileText });
   } else if (role === 'CONSULTANT') {
     navItems.push({ label: 'Kasus Ditugaskan', href: '/consultant/dashboard', icon: ClipboardList });
+  } else if (role === 'SEKRETARIS') {
+    navItems.push({ label: 'Buku Induk Registrasi', href: '/sekretaris/dashboard', icon: ClipboardList });
+    navItems.push({ label: 'Gelar Kasus (BAGK)', href: '/sekretaris/gelar-kasus', icon: FileText });
+    navItems.push({ label: 'Arsip Dossier', href: '/sekretaris/dossier', icon: LayoutDashboard });
+  } else if (role === 'BENDAHARA') {
+    navItems.push({ label: 'Ikhtisar Keuangan', href: '/bendahara/dashboard', icon: LayoutDashboard });
+    navItems.push({ label: 'Anggaran Kasus', href: '/bendahara/anggaran', icon: ClipboardList });
+    navItems.push({ label: 'Buku Kas & Neraca', href: '/bendahara/neraca', icon: FileText });
+  } else if (role === 'PARALEGAL') {
+    navItems.push({ label: 'Kasus Asistensi', href: '/paralegal/dashboard', icon: ClipboardList });
+    navItems.push({ label: 'Observasi Sidang', href: '/paralegal/observasi', icon: FileText });
+  } else if (role === 'PENGAWAS') {
+    navItems.push({ label: 'Audit Pengawasan', href: '/pengawas/dashboard', icon: LayoutDashboard });
+    navItems.push({ label: 'Kepatuhan SOP', href: '/pengawas/kepatuhan', icon: ClipboardList });
+    navItems.push({ label: 'Data LPPM STHM', href: '/pengawas/lppm', icon: Users });
   } else if (role === 'ADMIN') {
-    navItems.push({ label: 'Ringkasan', href: '/admin/dashboard', icon: LayoutDashboard });
-    navItems.push({ label: 'Manajemen Kasus', href: '/admin/kasus', icon: ClipboardList });
+    navItems.push({ label: 'Dashboard Kepala', href: '/admin/dashboard', icon: LayoutDashboard });
+    navItems.push({ label: 'Manajemen Perkara', href: '/admin/kasus', icon: ClipboardList });
+    navItems.push({ label: 'Buku Registrasi', href: '/sekretaris/dashboard', icon: FileText });
+    navItems.push({ label: 'Keuangan LKBH', href: '/bendahara/dashboard', icon: LayoutDashboard });
+    navItems.push({ label: 'Arsip Dossier', href: '/sekretaris/dossier', icon: FileText });
     navItems.push({ label: 'Manajemen User', href: '/admin/users', icon: Users });
   }
 
   const initials = userName
     ? userName.split(' ').map((n) => n[0]).join('').substring(0, 2).toUpperCase()
     : role.substring(0, 2).toUpperCase();
+
 
   return (
     <header className="topbar horizontal-navbar" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0 24px', height: '64px', backgroundColor: '#fff', borderBottom: '1px solid var(--line)', position: 'sticky', top: 0, zIndex: 100 }}>
@@ -110,10 +139,13 @@ export default function TopNavbar({ role, userName }) {
           <div className="avatar" style={{ width: 32, height: 32, borderRadius: '50%', background: 'var(--primary-light)', color: 'var(--primary)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 600, fontSize: 13 }}>
             {initials}
           </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-            <span style={{ fontSize: 14, fontWeight: 500 }}>{userName}</span>
-            <ChevronDown size={14} color="#657068" />
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
+            <span style={{ fontSize: 13, fontWeight: 600, color: '#0f172a', lineHeight: 1.2 }}>{userName}</span>
+            <span style={{ fontSize: 10, fontWeight: 700, color: 'var(--primary, #16a34a)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+              {roleTitles[role] || role}
+            </span>
           </div>
+          <ChevronDown size={14} color="#657068" />
 
           {dropdownOpen && (
             <div style={{ position: 'absolute', top: '100%', right: 0, marginTop: 8, width: 200, background: '#fff', borderRadius: 8, boxShadow: '0 4px 12px rgba(0,0,0,0.1)', border: '1px solid #e5e7eb', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>

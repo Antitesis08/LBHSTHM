@@ -4,7 +4,7 @@ import bcrypt from 'bcryptjs';
 import { z } from 'zod';
 
 const createUserSchema = z.object({
-  role: z.enum(['CUSTOMER', 'CONSULTANT', 'ADMIN']),
+  role: z.enum(['CUSTOMER', 'CONSULTANT', 'ADMIN', 'SEKRETARIS', 'BENDAHARA', 'PARALEGAL', 'PENGAWAS']),
   name: z.string().min(1, 'Nama wajib diisi'),
   email: z.string().email('Email tidak valid'),
   password: z.string().min(8, 'Password minimal 8 karakter'),
@@ -15,6 +15,20 @@ const createUserSchema = z.object({
     specialization: z.array(z.string()).optional()
   }).optional()
 });
+
+export async function GET(request) {
+  const auth = await requireRole(['ADMIN']);
+  if (auth.error) return auth.error;
+
+  const users = await prisma.user.findMany({
+    include: {
+      consultantProfile: true,
+    },
+    orderBy: { createdAt: 'desc' },
+  });
+
+  return Response.json({ users });
+}
 
 export async function POST(request) {
   const auth = await requireRole(['ADMIN']);

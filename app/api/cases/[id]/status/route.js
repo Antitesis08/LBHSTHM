@@ -12,11 +12,21 @@ const VALID_TRANSITIONS = {
 const ALLOWED_STATUSES = ['DIVERIFIKASI', 'DITUGASKAN', 'PROSES', 'MENUNGGU_DOKUMEN', 'SELESAI', 'DITOLAK'];
 
 export async function PATCH(request, { params }) {
-  const { user, error } = await requireRole(['ADMIN', 'CONSULTANT']);
+  const { user, error } = await requireRole(['ADMIN', 'CONSULTANT', 'SEKRETARIS']);
   if (error) return error;
 
   const { id } = await params;
   const body = await request.json().catch(() => ({}));
+
+  // If only updating registrationNumber (SOP-01 Buku Induk)
+  if (body.registrationNumber && !body.status) {
+    const updatedCase = await prisma.case.update({
+      where: { id },
+      data: { registrationNumber: body.registrationNumber },
+    });
+    return Response.json({ case: updatedCase });
+  }
+
   const status = body.status;
 
   if (!status || !ALLOWED_STATUSES.includes(status)) {

@@ -12,6 +12,14 @@ async function getConsultants() {
   });
 }
 
+async function getParalegals() {
+  return prisma.user.findMany({
+    where: { role: 'PARALEGAL' },
+    select: { id: true, name: true, email: true },
+    orderBy: { name: 'asc' },
+  });
+}
+
 export default async function AdminCaseDetailPage({ params }) {
   const { user, error } = await requireRole(['ADMIN']);
   if (error) redirect('/unauthorized');
@@ -22,6 +30,7 @@ export default async function AdminCaseDetailPage({ params }) {
     include: {
       client: { select: { id: true, name: true, email: true, phone: true } },
       consultant: { select: { id: true, type: true, user: { select: { id: true, name: true } } } },
+      paralegal: { select: { id: true, name: true, email: true } },
       documents: {
         include: { uploader: { select: { name: true } } },
         orderBy: { createdAt: 'desc' },
@@ -34,6 +43,7 @@ export default async function AdminCaseDetailPage({ params }) {
 
   if (!caseData) redirect('/unauthorized');
   const consultants = await getConsultants();
+  const paralegals = await getParalegals();
 
   return (
     <div style={{ maxWidth: 1000, margin: '0 auto', padding: '24px 20px 80px' }}>
@@ -138,7 +148,7 @@ export default async function AdminCaseDetailPage({ params }) {
       </div>
 
       {/* Admin Action Panel (Rapat evaluasi, ACC, Legal Opinion, Penugasan Konsultan) */}
-      <AdminCaseActions caseData={caseData} consultants={consultants} />
+      <AdminCaseActions caseData={caseData} consultants={consultants} paralegals={paralegals} />
 
       {/* Supervisi Progres Penanganan Konsultan Hukum */}
       {(caseData.consultationNotes || (caseData.hearings && caseData.hearings.length > 0)) && (
