@@ -6,3 +6,5 @@ dist
 .next/
 node_modules/
 scratch/
+public/uploads/*
+!public/uploads/.gitkeep
