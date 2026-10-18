@@ -1,0 +1,177 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  CUSTOMER
+  ADMIN
+  CONSULTANT
+}
+enum AuthProvider {
+  CREDENTIALS
+  GOOGLE
+}
+enum ConsultantType {
+  PENGACARA_PUBLIK
+  ADVOKAT
+}
+enum ServiceType {
+  KONSULTASI_HUKUM
+  PENDAMPINGAN_HUKUM
+  LEGAL_OPINION
+  MEDIASI
+  PENDAFTARAN_HKI
+  PRO_BONO
+}
+enum CaseStatus {
+  DIAJUKAN
+  DIVERIFIKASI
+  DITUGASKAN
+  PROSES
+  MENUNGGU_DOKUMEN
+  SELESAI
+  DITOLAK
+}
+enum DocumentSource {
+  CLIENT
+  CONSULTANT_GENERATED
+  EXTERNAL_OFFICIAL
+}
+
+model User {
+  id String @id @default(cuid())
+  name String
+  email String @unique
+  phone String?
+  passwordHash String?
+  provider AuthProvider @default(CREDENTIALS)
+  googleId String? @unique
+  role Role @default(CUSTOMER)
+  isVerified Boolean @default(false)
+  isActive Boolean @default(true)
+  hasManualPassword Boolean @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  consultantProfile ConsultantProfile?
+  casesAsClient Case[] @relation("ClientCases")
+  messages Message[]
+  notifications Notification[]
+  documents Document[] @relation("UploadedDocuments")
+}
+
+model ConsultantProfile {
+  id String @id @default(cuid())
+  userId String @unique
+  user User @relation(fields: [userId], references: [id])
+  type ConsultantType
+  specialization String[]
+  bio String? @db.Text
+  photoUrl String?
+  barNumber String?
+  isAvailable Boolean @default(true)
+  casesAssigned Case[] @relation("AssignedCases")
+  availabilities Availability[]
+  schedules Schedule[]
+}
+
+model Availability {
+  id String @id @default(cuid())
+  consultantId String
+  consultant ConsultantProfile @relation(fields: [consultantId], references: [id])
+  dayOfWeek Int
+  startTime String
+  endTime String
+}
+
+model Case {
+  id String @id @default(cuid())
+  code String @unique
+  clientId String
+  client User @relation("ClientCases", fields: [clientId], references: [id])
+  consultantId String
+  consultant ConsultantProfile @relation("AssignedCases", fields: [consultantId], references: [id])
+  serviceType ServiceType
+  title String
+  description String @db.Text
+  status CaseStatus @default(DIAJUKAN)
+  rejectionReason String?
+  isProBono Boolean @default(false)
+  proBonoProof String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  documents Document[]
+  schedules Schedule[]
+  messages Message[]
+  @@index([status])
+  @@index([serviceType])
+  @@index([clientId])
+  @@index([consultantId])
+}
+
+model Document {
+  id String @id @default(cuid())
+  caseId String
+  case Case @relation(fields: [caseId], references: [id])
+  uploaderId String
+  uploader User @relation("UploadedDocuments", fields: [uploaderId], references: [id])
+  fileUrl String
+  fileName String
+  fileType String
+  source DocumentSource @default(CLIENT)
+  isGenerated Boolean @default(false)
+  createdAt DateTime @default(now())
+}
+
+model Schedule {
+  id String @id @default(cuid())
+  caseId String
+  case Case @relation(fields: [caseId], references: [id])
+  consultantId String
+  consultant ConsultantProfile @relation(fields: [consultantId], references: [id])
+  scheduledAt DateTime
+  mode String
+  meetingLink String?
+  location String?
+  createdAt DateTime @default(now())
+  @@unique([consultantId, scheduledAt])
+}
+
+model Message {
+  id String @id @default(cuid())
+  caseId String?
+  case Case? @relation(fields: [caseId], references: [id])
+  senderId String
+  sender User @relation(fields: [senderId], references: [id])
+  content String
+  createdAt DateTime @default(now())
+}
+
+model Notification {
+  id String @id @default(cuid())
+  userId String
+  user User @relation(fields: [userId], references: [id])
+  title String
+  body String
+  isRead Boolean @default(false)
+  createdAt DateTime @default(now())
+}
+
+model ServiceContent {
+  id String @id @default(cuid())
+  type ServiceType @unique
+  title String
+  description String
+  iconUrl String?
+}
+
+model GalleryItem {
+  id String @id @default(cuid())
+  title String
+  imageUrl String
+  createdAt DateTime @default(now())
+}

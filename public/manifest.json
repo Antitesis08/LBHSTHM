@@ -1,0 +1,10 @@
+{
+  "name": "LBH STHM",
+  "short_name": "LBH STHM",
+  "description": "Layanan Konsultasi dan Bantuan Hukum STHM",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#f4f1ea",
+  "theme_color": "#3b4a2e",
+  "icons": []
+}

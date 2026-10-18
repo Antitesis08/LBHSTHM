@@ -1,0 +1,65 @@
+import { prisma } from '../../../../../lib/prisma';
+import { requireRole } from '../../../../../lib/auth';
+import { s3 } from '../../../../../lib/storage';
+import { GetObjectCommand } from '@aws-sdk/client-s3';
+import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
+
+/**
+ * GET /api/documents/:id/download — Presigned URL untuk download dokumen
+ * RBAC:
+ *   CUSTOMER  → hanya dokumen dari case miliknya & source=CLIENT
+ *   CONSULTANT → hanya dokumen dari case yang ditugaskan
+ *   ADMIN → bebas semua
+ */
+export async function GET(request, { params }) {
+  const { user, error } = await requireRole(['CUSTOMER', 'CONSULTANT', 'ADMIN']);
+  if (error) return error;
+
+  const { id: documentId } = await params;
+
+  const document = await prisma.document.findUnique({
+    where: { id: documentId },
+    include: {
+      case: {
+        include: { consultant: { select: { userId: true } } },
+      },
+    },
+  });
+
+  if (!document) {
+    return Response.json({ error: 'Dokumen tidak ditemukan.' }, { status: 404 });
+  }
+
+  // RBAC: cek kepemilikan via case
+  if (user.role === 'CUSTOMER') {
+    if (document.case.clientId !== user.id) {
+      return Response.json({ error: 'Akses ditolak.' }, { status: 403 });
+    }
+    if (document.source !== 'CLIENT') {
+      return Response.json({ error: 'Akses ditolak.' }, { status: 403 });
+    }
+  }
+  if (user.role === 'CONSULTANT') {
+    if (document.case.consultant?.userId !== user.id) {
+      return Response.json({ error: 'Akses ditolak.' }, { status: 403 });
+    }
+  }
+
+  // Generate presigned URL (berlaku 15 menit)
+  try {
+    const command = new GetObjectCommand({
+      Bucket: process.env.S3_BUCKET_NAME,
+      Key: document.fileUrl,
+    });
+    const url = await getSignedUrl(s3, command, { expiresIn: 900 });
+
+    return Response.json({
+      url,
+      fileName: document.fileName,
+      fileType: document.fileType,
+    });
+  } catch (downloadError) {
+    console.error('S3 presigned URL failed:', downloadError);
+    return Response.json({ error: 'Gagal menghasilkan tautan unduhan.' }, { status: 500 });
+  }
+}
