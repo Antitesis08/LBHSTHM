@@ -8,10 +8,10 @@ export default function GenerateDocumentModal({ caseId, onClose, onGenerated, on
   const [loading, setLoading] = useState(false);
 
   const templates = [
-    { value: 'RINGKASAN_KONSULTASI', label: 'Ringkasan Konsultasi', active: true },
-    { value: 'LEGAL_OPINION', label: 'Legal Opinion', active: true },
-    { value: 'SURAT_KUASA', label: 'Surat Kuasa (Segera Hadir)', active: false },
-    { value: 'SOMASI', label: 'Somasi (Segera Hadir)', active: false },
+    { value: 'RINGKASAN_KONSULTASI', label: 'Ringkasan / Berita Acara Konsultasi', active: true },
+    { value: 'LEGAL_OPINION', label: 'Legal Opinion (Pendapat Hukum)', active: true },
+    { value: 'SURAT_KUASA', label: 'Surat Kuasa Khusus (Format Resmi)', active: true },
+    { value: 'SOMASI', label: 'Surat Peringatan / Somasi I', active: true },
   ];
 
   const handleGenerate = async (e) => {
@@ -40,15 +40,15 @@ export default function GenerateDocumentModal({ caseId, onClose, onGenerated, on
       <form className="modal auth-card" onSubmit={handleGenerate} onMouseDown={(e) => e.stopPropagation()}>
         <div className="modal-head">
           <div>
-            <p className="eyebrow">GENERATE DOKUMEN</p>
-            <h2>Buat Dokumen Otomatis</h2>
+            <p className="eyebrow">GENERATE DOKUMEN HUKUM</p>
+            <h2>Buat Dokumen Resmi LKBH STHM</h2>
           </div>
           <button type="button" className="icon-button" onClick={onClose} aria-label="Tutup">
             <X size={19} />
           </button>
         </div>
         <label>
-          Jenis template
+          Jenis template dokumen resmi
           <select
             name="templateType"
             value={templateType}
@@ -56,7 +56,7 @@ export default function GenerateDocumentModal({ caseId, onClose, onGenerated, on
             id="generate-template-select"
           >
             {templates.map((t) => (
-              <option key={t.value} value={t.value} disabled={!t.active}>
+              <option key={t.value} value={t.value}>
                 {t.label}
               </option>
             ))}
@@ -66,17 +66,20 @@ export default function GenerateDocumentModal({ caseId, onClose, onGenerated, on
           <FileText size={18} />
           <span>
             {templateType === 'RINGKASAN_KONSULTASI'
-              ? 'Ringkasan konsultasi berisi data kasus, klien, dan catatan konsultasi awal.'
+              ? 'Berita Acara & Ringkasan Konsultasi berisi duduk perkara, data klien, dan catatan rekomendasi hukum.'
               : templateType === 'LEGAL_OPINION'
-              ? 'Legal Opinion berisi latar belakang, duduk perkara, dasar hukum, analisis, dan rekomendasi.'
-              : 'Template ini masih menunggu review advokat STHM dan belum dapat digunakan.'}
+              ? 'Legal Opinion resmi dengan analisis yuridis mendalam dan rekomendasi penanganan perkara.'
+              : templateType === 'SURAT_KUASA'
+              ? 'Surat Kuasa Khusus standar LKBH STHM (Format Lampiran E) untuk dasar beracara di pengadilan/instansi.'
+              : 'Surat Somasi / Teguran Hukum resmi LKBH STHM (Format Lampiran E No. 26) kepada pihak lawan.'}
           </span>
         </div>
         <button
           className="button primary full"
           type="submit"
-          disabled={loading || !['RINGKASAN_KONSULTASI', 'LEGAL_OPINION'].includes(templateType)}
+          disabled={loading}
           id="btn-submit-generate"
+          style={{ background: '#16a34a', color: '#fff' }}
         >
           {loading ? 'Membuat dokumen...' : 'Buat Dokumen PDF'}
           <ArrowUpRight size={16} />

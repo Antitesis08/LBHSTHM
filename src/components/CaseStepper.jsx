@@ -96,7 +96,7 @@ export default function CaseStepper({ status, consultant }) {
           padding: '12px 16px', color: '#92400e', fontSize: 13,
         }}>
           <Clock3 size={18} />
-          <span>Pengajuan Anda sedang menunggu diverifikasi oleh admin LBH STHM.</span>
+          <span>Permohonan Anda sedang dalam antrean rapat internal tim LBH STHM untuk uji kelayakan berkas bantuan hukum.</span>
         </div>
       )}
 
@@ -106,8 +106,8 @@ export default function CaseStepper({ status, consultant }) {
           background: '#eff6ff', border: '1px solid #bfdbfe', borderRadius: 8,
           padding: '12px 16px', color: '#1e40af', fontSize: 13,
         }}>
-          <Clock3 size={18} />
-          <span>Pengajuan telah diverifikasi, sedang menunggu penugasan konsultan.</span>
+          <CheckCircle2 size={18} />
+          <span>Permohonan telah disetujui (ACC) melalui rapat LBH STHM. Dokumen Legal Opinion telah diterbitkan dan sedang menunggu penunjukan konsultan pendamping.</span>
         </div>
       )}
 

@@ -1,8 +1,7 @@
 import { prisma } from '../../../../../lib/prisma';
 import { requireRole } from '../../../../../lib/auth';
 import { documentUploadSchema } from '../../../../../lib/validators';
-import { s3 } from '../../../../../lib/storage';
-import { PutObjectCommand } from '@aws-sdk/client-s3';
+import { saveFileBuffer } from '../../../../../lib/storage';
 
 /**
  * POST /api/cases/:id/documents — Upload dokumen ke case
@@ -62,44 +61,43 @@ export async function POST(request, { params }) {
     source = parsed.data.source || 'CLIENT';
   }
 
-  // Upload ke S3
   const buffer = Buffer.from(await file.arrayBuffer());
   const ext = file.name.split('.').pop() || 'bin';
-  const s3Key = `cases/${caseId}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
+  const fileKey = `cases/${caseId}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
 
   try {
-    await s3.send(new PutObjectCommand({
-      Bucket: process.env.S3_BUCKET_NAME,
-      Key: s3Key,
-      Body: buffer,
-      ContentType: file.type || 'application/octet-stream',
-    }));
+    const savedPath = await saveFileBuffer({
+      bucketName: process.env.S3_BUCKET_NAME || 'lbh-sthm-docs',
+      key: fileKey,
+      body: buffer,
+      contentType: file.type || 'application/octet-stream',
+    });
+
+    // Simpan record ke database
+    const document = await prisma.document.create({
+      data: {
+        caseId,
+        uploaderId: user.id,
+        fileUrl: savedPath,
+        fileName: file.name,
+        fileType: file.type || 'application/octet-stream',
+        source,
+        isGenerated: false,
+      },
+      include: { uploader: { select: { id: true, name: true } } },
+    });
+
+    return Response.json({ document }, { status: 201 });
   } catch (uploadError) {
-    console.error('S3 upload failed:', uploadError);
+    console.error('File upload failed:', uploadError);
     return Response.json({ error: 'Gagal mengunggah file ke storage.' }, { status: 500 });
   }
-
-  // Simpan record ke database
-  const document = await prisma.document.create({
-    data: {
-      caseId,
-      uploaderId: user.id,
-      fileUrl: s3Key,
-      fileName: file.name,
-      fileType: file.type || 'application/octet-stream',
-      source,
-      isGenerated: false,
-    },
-    include: { uploader: { select: { id: true, name: true } } },
-  });
-
-  return Response.json({ document }, { status: 201 });
 }
 
 /**
  * GET /api/cases/:id/documents — Daftar dokumen case
  * RBAC:
- *   CUSTOMER  → hanya case miliknya, hanya lihat source=CLIENT
+ *   CUSTOMER  → hanya case miliknya, melihat CLIENT & CONSULTANT_GENERATED (Legal Opinion)
  *   CONSULTANT → hanya case ditugaskan, semua source
  *   ADMIN → bebas semua
  */
@@ -128,7 +126,7 @@ export async function GET(request, { params }) {
   // Filter source berdasarkan role
   const where = { caseId };
   if (user.role === 'CUSTOMER') {
-    where.source = 'CLIENT';
+    where.source = { in: ['CLIENT', 'CONSULTANT_GENERATED'] };
   }
 
   const documents = await prisma.document.findMany({

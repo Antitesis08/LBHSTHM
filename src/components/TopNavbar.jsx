@@ -41,20 +41,15 @@ export default function TopNavbar({ role, userName }) {
   };
 
   let navItems = [];
-  if (role !== 'CUSTOMER') {
-    navItems.push({ label: 'Ringkasan', href: `/${role.toLowerCase()}`, icon: LayoutDashboard });
-  }
-
   if (role === 'CUSTOMER') {
     navItems.push({ label: 'Kasus Saya', href: '/customer/dashboard', icon: ClipboardList });
+    navItems.push({ label: 'Ajukan Bantuan', href: '/customer/pengajuan', icon: FileText });
   } else if (role === 'CONSULTANT') {
-    navItems.push({ label: 'Kasus Ditugaskan', href: '/consultant/kasus', icon: ClipboardList });
-    navItems.push({ label: 'Jadwal & Ketersediaan', href: '/consultant/jadwal', icon: CalendarDays });
-    navItems.push({ label: 'Pesan', href: '/consultant/pesan', icon: MessageCircle });
+    navItems.push({ label: 'Kasus Ditugaskan', href: '/consultant/dashboard', icon: ClipboardList });
   } else if (role === 'ADMIN') {
+    navItems.push({ label: 'Ringkasan', href: '/admin/dashboard', icon: LayoutDashboard });
     navItems.push({ label: 'Manajemen Kasus', href: '/admin/kasus', icon: ClipboardList });
     navItems.push({ label: 'Manajemen User', href: '/admin/users', icon: Users });
-    navItems.push({ label: 'Laporan', href: '/admin/laporan', icon: FileText });
   }
 
   const initials = userName

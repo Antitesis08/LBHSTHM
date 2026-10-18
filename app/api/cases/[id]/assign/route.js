@@ -27,11 +27,16 @@ export async function PATCH(request, { params }) {
     return Response.json({ error: 'Konsultan tidak valid.' }, { status: 404 });
   }
 
+  const currentYear = new Date().getFullYear();
+  const sprinSeq = Math.floor(100 + Math.random() * 900);
+  const sprinNumber = (body.sprinNumber || '').trim() || `Sprin/${sprinSeq}/X/${currentYear}/LKBH-STHM`;
+
   const updatedCase = await prisma.case.update({
     where: { id },
     data: {
       consultantId,
       status: 'DITUGASKAN',
+      sprinNumber,
       rejectionReason: null,
     },
     include: {

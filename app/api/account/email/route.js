@@ -1,5 +1,5 @@
-import { requireRole } from '../../../lib/auth';
-import { prisma } from '../../../lib/prisma';
+import { requireRole } from '../../../../lib/auth';
+import { prisma } from '../../../../lib/prisma';
 import bcrypt from 'bcryptjs';
 import { z } from 'zod';
 

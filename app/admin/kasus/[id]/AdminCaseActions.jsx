@@ -2,166 +2,534 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { FileCheck, UserPlus, XCircle, Clock, CheckCircle2, AlertTriangle, FileText, Upload } from 'lucide-react';
 
 export default function AdminCaseActions({ caseData, consultants }) {
   const router = useRouter();
-  const [statusLoading, setStatusLoading] = useState(false);
-  const [assignLoading, setAssignLoading] = useState(false);
-  const [feedback, setFeedback] = useState('');
-  const [rejectionReason, setRejectionReason] = useState('');
-  const [showReassign, setShowReassign] = useState(false);
-  const [newConsultantId, setNewConsultantId] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [feedback, setFeedback] = useState({ text: '', type: 'info' });
 
-  const handleStatus = async (status) => {
-    if (status === 'DITOLAK' && !rejectionReason.trim()) {
-      setFeedback('Alasan penolakan wajib diisi.');
+  // Rejection State
+  const [showRejectForm, setShowRejectForm] = useState(false);
+  const [rejectionReason, setRejectionReason] = useState('');
+
+  // Assignment State
+  const [selectedConsultantId, setSelectedConsultantId] = useState(caseData.consultant?.id || '');
+  const [showReassign, setShowReassign] = useState(false);
+
+  // ACC + Legal Opinion State
+  const [showAccModal, setShowAccModal] = useState(false);
+  const [selectedServiceType, setSelectedServiceType] = useState(caseData.serviceType || 'PENDAMPINGAN_HUKUM');
+  const [loNotes, setLoNotes] = useState('');
+  const [customLoFile, setCustomLoFile] = useState(null);
+
+  const notify = (text, type = 'info') => {
+    setFeedback({ text, type });
+    setTimeout(() => setFeedback({ text: '', type: 'info' }), 6000);
+  };
+
+  // 1. Action: ACC Kasus & Terbitkan Legal Opinion
+  const handleAccAndGenerateLO = async () => {
+    setLoading(true);
+    notify('Memproses persetujuan rapat & penerbitan Legal Opinion...', 'info');
+
+    try {
+      // Step A: Upload custom LO file if provided, otherwise auto-generate from PDF template
+      if (customLoFile) {
+        const formData = new FormData();
+        formData.append('file', customLoFile);
+        formData.append('source', 'CONSULTANT_GENERATED');
+
+        const uploadRes = await fetch(`/api/cases/${caseData.id}/documents`, {
+          method: 'POST',
+          body: formData,
+        });
+        if (!uploadRes.ok) {
+          throw new Error('Gagal mengunggah file Legal Opinion.');
+        }
+      } else {
+        // Auto-generate official Legal Opinion PDF
+        const genRes = await fetch(`/api/cases/${caseData.id}/generate-doc`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            templateType: 'LEGAL_OPINION',
+            notes: loNotes,
+          }),
+        });
+        const genData = await genRes.json();
+        if (!genRes.ok) {
+          throw new Error(genData.error || 'Gagal membuat dokumen Legal Opinion.');
+        }
+      }
+
+      // Step B: Update Case Status to DIVERIFIKASI (Approved/ACC) with decided serviceType
+      const statusRes = await fetch(`/api/cases/${caseData.id}/status`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          status: 'DIVERIFIKASI',
+          serviceType: selectedServiceType,
+        }),
+      });
+      const statusData = await statusRes.json();
+      if (!statusRes.ok) {
+        throw new Error(statusData.error || 'Gagal memperbarui status kasus.');
+      }
+
+      notify('Permohonan berhasil di-ACC dan Dokumen Legal Opinion telah diterbitkan!', 'success');
+      setShowAccModal(false);
+      router.refresh();
+    } catch (err) {
+      notify(err.message || 'Terjadi kesalahan.', 'error');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // 2. Action: Tolak Kasus
+  const handleReject = async () => {
+    if (!rejectionReason.trim()) {
+      notify('Alasan penolakan rapat wajib diisi.', 'error');
       return;
     }
 
-    setStatusLoading(true);
-    setFeedback('');
-
+    setLoading(true);
     try {
       const res = await fetch(`/api/cases/${caseData.id}/status`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status, reason: rejectionReason.trim() }),
+        body: JSON.stringify({ status: 'DITOLAK', reason: rejectionReason.trim() }),
       });
       const data = await res.json();
       if (!res.ok) {
-        throw new Error(data.error || 'Gagal memperbarui status.');
+        throw new Error(data.error || 'Gagal menolak kasus.');
       }
-      setFeedback(`Status kasus berhasil diperbarui ke ${status}.`);
+
+      notify('Kasus telah ditolak sesuai hasil rapat evaluasi.', 'info');
+      setShowRejectForm(false);
       router.refresh();
-    } catch (error) {
-      setFeedback(error.message || 'Terjadi kesalahan.');
+    } catch (err) {
+      notify(err.message || 'Terjadi kesalahan.', 'error');
     } finally {
-      setStatusLoading(false);
+      setLoading(false);
     }
   };
 
-  const handleReassign = async (event) => {
-    event.preventDefault();
-    if (!newConsultantId) {
-      setFeedback('Pilih konsultan pengganti terlebih dahulu.');
-      return;
-    }
-    if (newConsultantId === caseData.consultant?.id) {
-      setFeedback('Konsultan yang dipilih sama dengan konsultan saat ini.');
+  // 3. Action: Penugasan Konsultan (setelah DIVERIFIKASI atau Reassign)
+  const handleAssignConsultant = async (e) => {
+    e?.preventDefault();
+    if (!selectedConsultantId) {
+      notify('Pilih konsultan yang akan ditugaskan terlebih dahulu.', 'error');
       return;
     }
 
-    setAssignLoading(true);
-    setFeedback('');
-
+    setLoading(true);
     try {
       const res = await fetch(`/api/cases/${caseData.id}/assign`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ consultantId: newConsultantId }),
+        body: JSON.stringify({ consultantId: selectedConsultantId }),
       });
       const data = await res.json();
       if (!res.ok) {
-        throw new Error(data.error || 'Gagal mengganti konsultan.');
+        throw new Error(data.error || 'Gagal menugaskan konsultan.');
       }
-      setFeedback('Konsultan berhasil diganti.');
+
+      notify('Konsultan berhasil ditugaskan. Kasus beralih ke status DITUGASKAN.', 'success');
       setShowReassign(false);
       router.refresh();
-    } catch (error) {
-      setFeedback(error.message || 'Terjadi kesalahan.');
+    } catch (err) {
+      notify(err.message || 'Terjadi kesalahan.', 'error');
     } finally {
-      setAssignLoading(false);
+      setLoading(false);
     }
   };
 
   return (
     <>
-      {feedback && (
-        <div style={{ marginBottom: 16, padding: '10px 12px', borderRadius: 8, background: '#f3f4f6', color: '#374151' }}>
-          {feedback}
+      {feedback.text && (
+        <div
+          style={{
+            marginBottom: 20,
+            padding: '12px 16px',
+            borderRadius: 8,
+            fontSize: 14,
+            background: feedback.type === 'error' ? '#fee2e2' : feedback.type === 'success' ? '#dcfce7' : '#f3f4f6',
+            color: feedback.type === 'error' ? '#991b1b' : feedback.type === 'success' ? '#166534' : '#374151',
+            border: `1px solid ${feedback.type === 'error' ? '#fca5a5' : feedback.type === 'success' ? '#86efac' : '#e5e7eb'}`,
+          }}
+        >
+          {feedback.text}
         </div>
       )}
 
-      {/* Info konsultan yang dipilih klien */}
-      <div style={{ background: '#f0fdf4', borderRadius: 12, border: '1px solid #bbf7d0', padding: '12px 16px', marginBottom: 20 }}>
-        <span style={{ fontSize: 13, color: '#166534' }}>
-          <strong>Konsultan dipilih klien:</strong> {caseData.consultant?.user?.name || '-'}
-          {caseData.consultant?.type && ` (${caseData.consultant.type.replaceAll('_', ' ')})`}
-        </span>
-      </div>
-
-      {/* Aksi untuk kasus DIAJUKAN */}
+      {/* TAHAP 1: Kasus DIAJUKAN (Menunggu Rapat LBH STHM) */}
       {caseData.status === 'DIAJUKAN' && (
-        <div style={{ background: '#fff', borderRadius: 12, border: '1px solid #e5e7eb', padding: 20, marginBottom: 20 }}>
-          <h2 style={{ fontSize: 18, fontWeight: 700, marginBottom: 12 }}>Verifikasi Kasus</h2>
-          <p style={{ marginBottom: 12, color: '#657068' }}>
-            Periksa dokumen dan kelayakan kasus. Konsultan sudah dipilih oleh klien saat pengajuan.
+        <div style={{ background: '#fff', borderRadius: 12, border: '1px solid #e5e7eb', padding: 24, marginBottom: 20 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
+            <div style={{ width: 36, height: 36, borderRadius: 8, background: '#fef3c7', color: '#92400e', display: 'grid', placeItems: 'center' }}>
+              <Clock size={20} />
+            </div>
+            <div>
+              <h2 style={{ fontSize: 17, fontWeight: 700, margin: 0 }}>Evaluasi Rapat Internal & Uji Kelayakan Perkara</h2>
+              <span style={{ fontSize: 12, color: '#657068' }}>Status Kasus: DIAJUKAN (Menunggu Keputusan LBH)</span>
+            </div>
+          </div>
+
+          <p style={{ fontSize: 13, color: '#4b5563', lineHeight: 1.5, marginBottom: 20 }}>
+            Periksa berkas bukti yang dilampirkan klien di bawah. Berdasarkan hasil rapat tim LBH STHM, tentukan apakah permohonan ini <strong>layak</strong> mendapatkan bantuan hukum (di-ACC dengan menerbitkan dokumen Legal Opinion) atau <strong>ditolak</strong>.
           </p>
-          <textarea
-            value={rejectionReason}
-            onChange={(event) => setRejectionReason(event.target.value)}
-            placeholder="Isi alasan penolakan jika kasus ditolak"
-            style={{ width: '100%', minHeight: 96, padding: 12, borderRadius: 8, border: '1px solid #d1d5db', marginBottom: 12 }}
-          />
-          <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+
+          <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap' }}>
             <button
               type="button"
-              onClick={() => handleStatus('DITUGASKAN')}
-              disabled={statusLoading}
-              style={{ background: '#3b4a2e', color: '#fff', border: 'none', padding: '10px 16px', borderRadius: 8, cursor: 'pointer' }}
+              onClick={() => setShowAccModal(true)}
+              disabled={loading}
+              style={{
+                background: '#16a34a',
+                color: '#fff',
+                border: 'none',
+                padding: '10px 20px',
+                borderRadius: 8,
+                cursor: 'pointer',
+                fontWeight: 600,
+                fontSize: 13,
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 8,
+              }}
             >
-              {statusLoading ? 'Memproses...' : 'Verifikasi & Aktifkan'}
+              <FileCheck size={16} /> ACC Permohonan & Terbitkan Legal Opinion
             </button>
+
             <button
               type="button"
-              onClick={() => handleStatus('DITOLAK')}
-              disabled={statusLoading}
-              style={{ background: '#8c3b2e', color: '#fff', border: 'none', padding: '10px 16px', borderRadius: 8, cursor: 'pointer' }}
+              onClick={() => setShowRejectForm(!showRejectForm)}
+              disabled={loading}
+              style={{
+                background: '#dc2626',
+                color: '#fff',
+                border: 'none',
+                padding: '10px 20px',
+                borderRadius: 8,
+                cursor: 'pointer',
+                fontWeight: 600,
+                fontSize: 13,
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 8,
+              }}
             >
-              {statusLoading ? 'Memproses...' : 'Tolak'}
+              <XCircle size={16} /> {showRejectForm ? 'Batal Tolak' : 'Tolak Permohonan'}
             </button>
           </div>
+
+          {/* Form Penolakan */}
+          {showRejectForm && (
+            <div style={{ marginTop: 20, paddingTop: 16, borderTop: '1px solid #f3f4f6' }}>
+              <label style={{ display: 'block', fontSize: 13, fontWeight: 600, marginBottom: 6, color: '#374151' }}>
+                Alasan Penolakan Hasil Rapat <span style={{ color: '#dc2626' }}>*</span>
+              </label>
+              <textarea
+                value={rejectionReason}
+                onChange={(e) => setRejectionReason(e.target.value)}
+                placeholder="Tuliskan alasan penolakan hasil rapat evaluasi (misal: perkara di luar kompetensi LBH, berkas bukti tidak mencukupi, dsb)..."
+                rows={4}
+                style={{
+                  width: '100%',
+                  padding: 12,
+                  borderRadius: 8,
+                  border: '1px solid #d1d5db',
+                  fontSize: 13,
+                  marginBottom: 12,
+                }}
+              />
+              <button
+                type="button"
+                onClick={handleReject}
+                disabled={loading || !rejectionReason.trim()}
+                style={{
+                  background: '#991b1b',
+                  color: '#fff',
+                  border: 'none',
+                  padding: '9px 16px',
+                  borderRadius: 8,
+                  cursor: 'pointer',
+                  fontWeight: 600,
+                  fontSize: 13,
+                }}
+              >
+                {loading ? 'Menyimpan...' : 'Konfirmasi Penolakan'}
+              </button>
+            </div>
+          )}
         </div>
       )}
 
-      {/* Ganti Konsultan — tersedia untuk semua status aktif */}
-      {['DIAJUKAN', 'DIVERIFIKASI', 'DITUGASKAN', 'PROSES', 'MENUNGGU_DOKUMEN'].includes(caseData.status) && (
+      {/* TAHAP 2: Kasus DIVERIFIKASI (Sudah di-ACC & Legal Opinion Terbit, Siap Penugasan Konsultan) */}
+      {caseData.status === 'DIVERIFIKASI' && (
+        <div style={{ background: '#fff', borderRadius: 12, border: '1px solid #bfdbfe', padding: 24, marginBottom: 20 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>
+            <div style={{ width: 36, height: 36, borderRadius: 8, background: '#dbeafe', color: '#1e40af', display: 'grid', placeItems: 'center' }}>
+              <UserPlus size={20} />
+            </div>
+            <div>
+              <h2 style={{ fontSize: 17, fontWeight: 700, margin: 0 }}>Penugasan Konsultan / Advokat Pendamping</h2>
+              <span style={{ fontSize: 12, color: '#16a34a', fontWeight: 600 }}>
+                Status: Kasus Telah di-ACC & Dokumen Legal Opinion Tersedia
+              </span>
+            </div>
+          </div>
+
+          <p style={{ fontSize: 13, color: '#4b5563', lineHeight: 1.5, marginBottom: 20 }}>
+            Pilih konsultan hukum (Advokat / Pengacara Publik) dari LBH STHM untuk menangani dan mendampingi perkara ini.
+          </p>
+
+          <form onSubmit={handleAssignConsultant} style={{ display: 'flex', gap: 12, flexWrap: 'wrap', alignItems: 'center' }}>
+            <select
+              value={selectedConsultantId}
+              onChange={(e) => setSelectedConsultantId(e.target.value)}
+              required
+              style={{
+                padding: '10px 14px',
+                borderRadius: 8,
+                border: '1px solid #cbd5e1',
+                fontSize: 14,
+                minWidth: 280,
+                background: '#fff',
+              }}
+            >
+              <option value="">-- Pilih Konsultan Pendamping --</option>
+              {consultants.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.user.name} ({c.type.replaceAll('_', ' ')}) {c.specialization?.length ? `— [${c.specialization.join(', ')}]` : ''}
+                </option>
+              ))}
+            </select>
+
+            <button
+              type="submit"
+              disabled={loading || !selectedConsultantId}
+              style={{
+                background: 'var(--olive, #3b4a2e)',
+                color: '#fff',
+                border: 'none',
+                padding: '10px 20px',
+                borderRadius: 8,
+                cursor: 'pointer',
+                fontWeight: 600,
+                fontSize: 13,
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 8,
+              }}
+            >
+              <UserPlus size={16} /> {loading ? 'Menugaskan...' : 'Tugaskan Konsultan & Lanjutkan'}
+            </button>
+          </form>
+        </div>
+      )}
+
+      {/* TAHAP 3: Kasus Telah DITUGASKAN / PROSES — Info Konsultan & Reassign */}
+      {['DITUGASKAN', 'PROSES', 'MENUNGGU_DOKUMEN'].includes(caseData.status) && (
         <div style={{ background: '#fff', borderRadius: 12, border: '1px solid #e5e7eb', padding: 20, marginBottom: 20 }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: showReassign ? 12 : 0 }}>
-            <h2 style={{ fontSize: 16, fontWeight: 600 }}>Ganti Konsultan</h2>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div>
+              <strong style={{ fontSize: 14, color: '#111827' }}>Konsultan Bertugas: </strong>
+              <span style={{ fontSize: 14, color: '#16a34a', fontWeight: 600 }}>
+                {caseData.consultant?.user?.name || '-'} ({caseData.consultant?.type?.replaceAll('_', ' ') || ''})
+              </span>
+            </div>
             <button
               type="button"
               onClick={() => setShowReassign(!showReassign)}
-              style={{ background: 'none', border: '1px solid #d1d5db', padding: '6px 12px', borderRadius: 8, cursor: 'pointer', fontSize: 13, color: '#374151' }}
+              style={{
+                background: 'none',
+                border: '1px solid #d1d5db',
+                padding: '6px 12px',
+                borderRadius: 6,
+                cursor: 'pointer',
+                fontSize: 12,
+                color: '#4b5563',
+              }}
             >
-              {showReassign ? 'Batal' : 'Ubah'}
+              {showReassign ? 'Batal' : 'Ganti Konsultan'}
             </button>
           </div>
+
           {showReassign && (
-            <form onSubmit={handleReassign} style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
+            <form onSubmit={handleAssignConsultant} style={{ marginTop: 14, display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center' }}>
               <select
-                value={newConsultantId}
-                onChange={(event) => setNewConsultantId(event.target.value)}
-                style={{ padding: '10px 12px', borderRadius: 8, border: '1px solid #d1d5db', minWidth: 220 }}
+                value={selectedConsultantId}
+                onChange={(e) => setSelectedConsultantId(e.target.value)}
+                style={{ padding: '8px 12px', borderRadius: 6, border: '1px solid #d1d5db', minWidth: 260 }}
               >
                 <option value="">Pilih konsultan pengganti</option>
                 {consultants
                   .filter((c) => c.id !== caseData.consultant?.id)
-                  .map((consultant) => (
-                    <option key={consultant.id} value={consultant.id}>
-                      {consultant.user.name} ({consultant.type.replaceAll('_', ' ')})
+                  .map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.user.name} ({c.type.replaceAll('_', ' ')})
                     </option>
                   ))}
               </select>
               <button
                 type="submit"
-                disabled={assignLoading}
-                style={{ background: '#4a5d6b', color: '#fff', border: 'none', padding: '10px 16px', borderRadius: 8, cursor: 'pointer' }}
+                disabled={loading || !selectedConsultantId || selectedConsultantId === caseData.consultant?.id}
+                style={{
+                  background: '#374151',
+                  color: '#fff',
+                  border: 'none',
+                  padding: '8px 14px',
+                  borderRadius: 6,
+                  cursor: 'pointer',
+                  fontSize: 12,
+                  fontWeight: 600,
+                }}
               >
-                {assignLoading ? 'Memproses...' : 'Konfirmasi Ganti'}
+                Konfirmasi Ganti
               </button>
             </form>
           )}
+        </div>
+      )}
+
+      {/* Modal ACC & Penerbitan Legal Opinion */}
+      {showAccModal && (
+        <div
+          style={{
+            position: 'fixed',
+            inset: 0,
+            background: 'rgba(0,0,0,0.5)',
+            display: 'grid',
+            placeItems: 'center',
+            padding: 20,
+            zIndex: 1000,
+          }}
+          onClick={() => setShowAccModal(false)}
+        >
+          <div
+            style={{
+              background: '#fff',
+              borderRadius: 14,
+              padding: 28,
+              width: '100%',
+              maxWidth: 540,
+              boxShadow: '0 20px 40px rgba(0,0,0,0.2)',
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
+              <div style={{ width: 40, height: 40, borderRadius: 10, background: '#dcfce7', color: '#16a34a', display: 'grid', placeItems: 'center' }}>
+                <FileCheck size={22} />
+              </div>
+              <div>
+                <h3 style={{ margin: 0, fontSize: 18, fontWeight: 700 }}>ACC Kasus & Penerbitan Legal Opinion</h3>
+                <span style={{ fontSize: 12, color: '#657068' }}>Hasil Rapat Evaluasi Kelayakan LBH STHM</span>
+              </div>
+            </div>
+
+            <p style={{ fontSize: 13, color: '#4b5563', lineHeight: 1.5, marginBottom: 16 }}>
+              Dengan menyetujui (ACC) kasus ini, sistem akan menghasilkan dokumen resmi <strong>Legal Opinion</strong> yang menyatakan perkara ini layak mendapatkan bantuan hukum dari LBH STHM.
+            </p>
+
+            <div style={{ marginBottom: 16 }}>
+              <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: '#374151', marginBottom: 6 }}>
+                Bentuk Layanan yang Diputuskan Hasil Rapat LBH: <span style={{ color: '#dc2626' }}>*</span>
+              </label>
+              <select
+                value={selectedServiceType}
+                onChange={(e) => setSelectedServiceType(e.target.value)}
+                style={{
+                  width: '100%',
+                  padding: '10px 12px',
+                  borderRadius: 8,
+                  border: '1px solid #d1d5db',
+                  fontSize: 13,
+                  background: '#fff',
+                  fontWeight: 600,
+                  color: '#111827',
+                }}
+              >
+                <option value="PENDAMPINGAN_HUKUM">Pendampingan Hukum (Litigasi / Non-Litigasi)</option>
+                <option value="KONSULTASI_HUKUM">Konsultasi Hukum Terarah</option>
+                <option value="LEGAL_OPINION">Legal Opinion Khusus</option>
+                <option value="MEDIASI">Mediasi Perkara</option>
+                <option value="PENDAFTARAN_HKI">Pendaftaran HKI</option>
+                <option value="PRO_BONO">Bantuan Hukum Cuma-Cuma (Pro Bono)</option>
+              </select>
+            </div>
+
+            <div style={{ marginBottom: 16 }}>
+              <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: '#374151', marginBottom: 6 }}>
+                Catatan Rapat / Dasar Analisis Kelayakan (Opsional):
+              </label>
+              <textarea
+                value={loNotes}
+                onChange={(e) => setLoNotes(e.target.value)}
+                placeholder="Misal: Berdasarkan hasil rapat pleno LBH STHM, pemohon memenuhi syarat kriteria bantuan hukum dan kronologi perkara memiliki dasar hukum kuat..."
+                rows={3}
+                style={{ width: '100%', padding: 10, borderRadius: 8, border: '1px solid #d1d5db', fontSize: 13 }}
+              />
+            </div>
+
+            <div style={{ marginBottom: 24, padding: '12px 14px', background: '#f8fafc', borderRadius: 8, border: '1px solid #e2e8f0' }}>
+              <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: '#374151', marginBottom: 6 }}>
+                Atau Unggah Berkas PDF Legal Opinion Mandiri (Opsional):
+              </label>
+              <input
+                type="file"
+                accept=".pdf"
+                onChange={(e) => setCustomLoFile(e.target.files?.[0] || null)}
+                style={{ fontSize: 12 }}
+              />
+              {customLoFile && (
+                <span style={{ display: 'block', fontSize: 11, color: '#16a34a', marginTop: 4 }}>
+                  File dipilih: {customLoFile.name}
+                </span>
+              )}
+            </div>
+
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
+              <button
+                type="button"
+                onClick={() => setShowAccModal(false)}
+                disabled={loading}
+                style={{
+                  background: 'none',
+                  border: '1px solid #d1d5db',
+                  padding: '9px 16px',
+                  borderRadius: 8,
+                  cursor: 'pointer',
+                  fontSize: 13,
+                  color: '#4b5563',
+                }}
+              >
+                Batal
+              </button>
+              <button
+                type="button"
+                onClick={handleAccAndGenerateLO}
+                disabled={loading}
+                style={{
+                  background: '#16a34a',
+                  color: '#fff',
+                  border: 'none',
+                  padding: '9px 18px',
+                  borderRadius: 8,
+                  cursor: 'pointer',
+                  fontWeight: 600,
+                  fontSize: 13,
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: 8,
+                }}
+              >
+                {loading ? 'Menerbitkan...' : 'Konfirmasi ACC & Terbitkan'}
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </>

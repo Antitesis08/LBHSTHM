@@ -1,15 +1,15 @@
 import { prisma } from '../../../../../lib/prisma';
 import { requireRole } from '../../../../../lib/auth';
 import { generateDocSchema } from '../../../../../lib/validators';
-import { s3 } from '../../../../../lib/storage';
-import { PutObjectCommand } from '@aws-sdk/client-s3';
+import { saveFileBuffer } from '../../../../../lib/storage';
 import { renderRingkasanKonsultasi } from '../../../../../lib/pdf/templates/ringkasanKonsultasi.jsx';
 import { renderLegalOpinion } from '../../../../../lib/pdf/templates/legalOpinion.jsx';
+import { renderSuratKuasa } from '../../../../../lib/pdf/templates/suratKuasa.jsx';
+import { renderSomasi } from '../../../../../lib/pdf/templates/somasi.jsx';
 
-// Template yang aktif saat ini
-const ACTIVE_TEMPLATES = ['RINGKASAN_KONSULTASI', 'LEGAL_OPINION'];
-// Template yang belum aktif (menunggu review advokat)
-const PENDING_TEMPLATES = ['SURAT_KUASA', 'SOMASI'];
+// Template yang aktif saat ini (semua template resmi LKBH STHM kini aktif)
+const ACTIVE_TEMPLATES = ['RINGKASAN_KONSULTASI', 'LEGAL_OPINION', 'SURAT_KUASA', 'SOMASI'];
+const PENDING_TEMPLATES = [];
 
 /**
  * POST /api/cases/:id/generate-doc — Generate PDF dokumen
@@ -78,10 +78,13 @@ export async function POST(request, { params }) {
       code: caseRecord.code,
       title: caseRecord.title,
       description: caseRecord.description,
-      serviceType: caseRecord.serviceType,
+      serviceType: caseRecord.serviceType || 'PENDAMPINGAN_HUKUM',
       status: caseRecord.status,
       clientName: caseRecord.client.name,
-      consultantName: caseRecord.consultant?.user?.name || 'Belum ditugaskan',
+      clientEmail: caseRecord.client.email,
+      consultantName: caseRecord.consultant?.user?.name || 'Tim LBH STHM',
+      sprinNumber: caseRecord.sprinNumber || 'Sprin/LKBH-STHM/2026',
+      notes: body.notes || caseRecord.consultationNotes || '',
       createdAt: caseRecord.createdAt,
     };
 
@@ -91,23 +94,29 @@ export async function POST(request, { params }) {
     } else if (templateType === 'LEGAL_OPINION') {
       pdfBuffer = await renderLegalOpinion(caseData);
       fileName = `Legal_Opinion_${caseRecord.code.replace(/\//g, '-')}.pdf`;
+    } else if (templateType === 'SURAT_KUASA') {
+      pdfBuffer = await renderSuratKuasa(caseData);
+      fileName = `Surat_Kuasa_Khusus_${caseRecord.code.replace(/\//g, '-')}.pdf`;
+    } else if (templateType === 'SOMASI') {
+      pdfBuffer = await renderSomasi(caseData);
+      fileName = `Somasi_${caseRecord.code.replace(/\//g, '-')}.pdf`;
     }
   } catch (renderError) {
     console.error('PDF render failed:', renderError);
     return Response.json({ error: 'Gagal membuat dokumen PDF.' }, { status: 500 });
   }
 
-  // Upload ke S3
   const s3Key = `cases/${caseId}/generated/${Date.now()}-${fileName}`;
+  let savedPath;
   try {
-    await s3.send(new PutObjectCommand({
-      Bucket: process.env.S3_BUCKET_NAME,
-      Key: s3Key,
-      Body: pdfBuffer,
-      ContentType: 'application/pdf',
-    }));
+    savedPath = await saveFileBuffer({
+      bucketName: process.env.S3_BUCKET_NAME || 'lbh-sthm-docs',
+      key: s3Key,
+      body: pdfBuffer,
+      contentType: 'application/pdf',
+    });
   } catch (uploadError) {
-    console.error('S3 upload failed:', uploadError);
+    console.error('Document save failed:', uploadError);
     return Response.json({ error: 'Gagal mengunggah dokumen ke storage.' }, { status: 500 });
   }
 
@@ -116,7 +125,7 @@ export async function POST(request, { params }) {
     data: {
       caseId,
       uploaderId: user.id,
-      fileUrl: s3Key,
+      fileUrl: savedPath,
       fileName,
       fileType: 'application/pdf',
       source: 'CONSULTANT_GENERATED',

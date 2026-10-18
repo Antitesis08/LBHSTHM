@@ -114,7 +114,9 @@ export default async function ConsultantDashboardPage() {
                         {item.code}
                       </Link>
                     </td>
-                    <td style={{ padding: '14px 16px', fontSize: 14 }}>{SERVICE_LABELS[item.serviceType] || item.serviceType}</td>
+                    <td style={{ padding: '14px 16px', fontSize: 14 }}>
+                      {item.serviceType ? (SERVICE_LABELS[item.serviceType] || item.serviceType) : 'Pendampingan Hukum'}
+                    </td>
                     <td style={{ padding: '14px 16px' }}>
                       <span style={{ padding: '4px 10px', borderRadius: 999, background: badge.bg, color: badge.color, fontSize: 12, fontWeight: 500 }}>
                         {badge.label}

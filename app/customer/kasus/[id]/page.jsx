@@ -24,6 +24,9 @@ export default async function CustomerCaseDetailPage({ params }) {
         include: { uploader: { select: { name: true } } },
         orderBy: { createdAt: 'desc' },
       },
+      hearings: {
+        orderBy: { date: 'asc' },
+      },
     },
   });
 
@@ -49,6 +52,11 @@ export default async function CustomerCaseDetailPage({ params }) {
     documents: caseData.documents.map((doc) => ({
       ...doc,
       createdAt: doc.createdAt.toISOString(),
+    })),
+    hearings: (caseData.hearings || []).map((h) => ({
+      ...h,
+      date: h.date.toISOString(),
+      createdAt: h.createdAt.toISOString(),
     })),
   };
 

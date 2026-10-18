@@ -93,15 +93,19 @@ model Case {
   code String @unique
   clientId String
   client User @relation("ClientCases", fields: [clientId], references: [id])
-  consultantId String
-  consultant ConsultantProfile @relation("AssignedCases", fields: [consultantId], references: [id])
-  serviceType ServiceType
+  consultantId String?
+  consultant ConsultantProfile? @relation("AssignedCases", fields: [consultantId], references: [id])
+  serviceType ServiceType?
   title String
   description String @db.Text
   status CaseStatus @default(DIAJUKAN)
   rejectionReason String?
   isProBono Boolean @default(false)
-  proBonoProof String?
+  sprinNumber String?
+  powerOfAttorneyUrl String?
+  consultationNotes String? @db.Text
+  litigationStage String?
+  hearings CaseHearing[]
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   documents Document[]
@@ -175,3 +179,19 @@ model GalleryItem {
   imageUrl String
   createdAt DateTime @default(now())
 }
+
+model CaseHearing {
+  id String @id @default(cuid())
+  caseId String
+  case Case @relation(fields: [caseId], references: [id], onDelete: Cascade)
+  date DateTime
+  title String
+  stage String?
+  location String?
+  notes String? @db.Text
+  documentUrl String?
+  documentName String?
+  createdAt DateTime @default(now())
+  @@index([caseId])
+}
+
