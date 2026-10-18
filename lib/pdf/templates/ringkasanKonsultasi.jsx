@@ -127,10 +127,9 @@ function RingkasanKonsultasiDoc({ data }) {
     <Document>
       <Page size="A4" style={styles.page}>
         <View style={styles.header}>
-          <Text style={styles.orgName}>LEMBAGA BANTUAN HUKUM</Text>
-          <Text style={styles.orgName}>SEKOLAH TINGGI HUKUM MILITER</Text>
-          <Text style={styles.orgSubtitle}>Jl. Raya Bogor KM 24, Cijantung, Jakarta Timur 13770</Text>
-          <Text style={styles.orgSubtitle}>Telp: (021) 8400123 | Email: lbh@sthm.ac.id</Text>
+          <Text style={styles.orgName}>LEMBAGA KONSULTASI DAN BANTUAN HUKUM (LKBH)</Text>
+          <Text style={styles.orgName}>SEKOLAH TINGGI HUKUM MILITER &quot;AHM-PTHM&quot;</Text>
+          <Text style={styles.orgSubtitle}>Jl. Matraman Raya No. 126, Jakarta Timur | Telp: (021) 8500-STHM | Portal: lbh.sthm.ac.id</Text>
         </View>
 
         <Text style={styles.title}>RINGKASAN KONSULTASI HUKUM</Text>
