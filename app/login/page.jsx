@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { ArrowUpRight, Gavel, ShieldCheck, Zap } from 'lucide-react';
+import { ArrowUpRight, ShieldCheck, Zap } from 'lucide-react';
 import { getSupabaseBrowserClient } from '../../lib/supabase/browserClient';
 
 const DEMO_ROLES = [
@@ -137,20 +137,17 @@ export default function LoginPage() {
         }}
       >
         <div style={{ textAlign: 'center', marginBottom: '20px' }}>
-          <div
+          <img
+            src="/img/logo_LKBH-removebg-preview.png"
+            alt="Logo LKBH STHM"
             style={{
-              width: '48px',
-              height: '48px',
-              background: '#d8b541',
-              color: '#22352b',
-              borderRadius: '12px',
-              display: 'grid',
-              placeItems: 'center',
+              width: '78px',
+              height: '78px',
+              objectFit: 'contain',
               margin: '0 auto 12px',
+              display: 'block',
             }}
-          >
-            <Gavel size={26} />
-          </div>
+          />
           <p className="eyebrow" style={{ margin: 0 }}>
             LKBH STHM
           </p>

@@ -4,7 +4,6 @@ import { useState, useRef, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import {
-  Gavel,
   Bell,
   Menu,
   X,
@@ -92,13 +91,20 @@ export default function TopNavbar({ role, userName }) {
         <button className="icon-button mobile-menu-btn" onClick={() => setMobileNav(true)} aria-label="Buka navigasi" style={{ display: 'none' }}>
           <Menu size={20} />
         </button>
-        <div className="brand-mark" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--primary)', color: '#fff', width: 32, height: 32, borderRadius: 8 }}>
-          <Gavel size={18} strokeWidth={2.5} />
-        </div>
-        <div style={{ display: 'flex', flexDirection: 'column' }}>
-          <strong style={{ fontSize: 14, fontWeight: 700, lineHeight: 1.2 }}>LBH STHM</strong>
-          <span style={{ fontSize: 10, color: '#657068', fontWeight: 600, letterSpacing: '0.05em' }}>RUANG KERJA HUKUM</span>
-        </div>
+        <Link
+          href={role === 'CUSTOMER' ? '/customer/dashboard' : `/${role.toLowerCase()}/dashboard`}
+          style={{ display: 'flex', alignItems: 'center', gap: 10, textDecoration: 'none', color: 'inherit' }}
+        >
+          <img
+            src="/img/logo_LKBH-removebg-preview.png"
+            alt="Logo LKBH STHM"
+            style={{ width: 48, height: 48, objectFit: 'contain', flexShrink: 0 }}
+          />
+          <div style={{ display: 'flex', flexDirection: 'column' }}>
+            <strong style={{ fontSize: 14, fontWeight: 700, lineHeight: 1.2 }}>LBH STHM</strong>
+            <span style={{ fontSize: 10, color: '#657068', fontWeight: 600, letterSpacing: '0.05em' }}>RUANG KERJA HUKUM</span>
+          </div>
+        </Link>
       </div>
 
       {/* Desktop Navigation */}
@@ -168,7 +174,14 @@ export default function TopNavbar({ role, userName }) {
         <div className="mobile-drawer-overlay" style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.5)', zIndex: 200 }} onClick={() => setMobileNav(false)}>
           <div className="mobile-drawer" style={{ position: 'absolute', top: 0, left: 0, bottom: 0, width: 260, backgroundColor: '#fff', padding: 24, display: 'flex', flexDirection: 'column' }} onClick={(e) => e.stopPropagation()}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 32 }}>
-              <strong>LBH STHM</strong>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <img
+                  src="/img/logo_LKBH-removebg-preview.png"
+                  alt="Logo LKBH STHM"
+                  style={{ width: 42, height: 42, objectFit: 'contain', flexShrink: 0 }}
+                />
+                <strong>LBH STHM</strong>
+              </div>
               <button className="icon-button" onClick={() => setMobileNav(false)}>
                 <X size={20} />
               </button>
