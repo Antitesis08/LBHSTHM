@@ -51,7 +51,12 @@ export async function PATCH(request, { params }) {
   }
 
   if (body.status !== undefined) {
-    if (!['DITUGASKAN', 'PROSES', 'SELESAI'].includes(body.status)) {
+    if (body.status === 'SELESAI' && user.role === 'CONSULTANT') {
+      return Response.json({
+        error: 'Penyelesaian perkara oleh konsultan wajib melalui pengunggahan dokumen hasil dan verifikasi Sekretaris LKBH.'
+      }, { status: 400 });
+    }
+    if (!['DITUGASKAN', 'PROSES', 'MENUNGGU_VERIFIKASI_SEKRETARIS', 'SELESAI'].includes(body.status)) {
       return Response.json({ error: 'Status tidak valid.' }, { status: 400 });
     }
     updateData.status = body.status;

@@ -15,7 +15,8 @@ export default async function SekretarisDashboardPage() {
   const totalRegistered = cases.length;
   const pendingScreening = cases.filter((c) => c.status === 'DIAJUKAN').length;
   const verifiedScreening = cases.filter((c) => c.status === 'DIVERIFIKASI').length;
-  const activeCases = cases.filter((c) => ['DITUGASKAN', 'PROSES'].includes(c.status)).length;
+  const activeCases = cases.filter((c) => ['DITUGASKAN', 'PROSES', 'MENUNGGU_DOKUMEN'].includes(c.status)).length;
+  const pendingVerification = cases.filter((c) => c.status === 'MENUNGGU_VERIFIKASI_SEKRETARIS').length;
   const archivedCount = cases.filter((c) => c.isArchived).length;
 
   return (
@@ -34,7 +35,7 @@ export default async function SekretarisDashboardPage() {
       </div>
 
       {/* KPI Cards */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 14, marginBottom: 28 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 14, marginBottom: 28 }}>
         <div style={{ background: '#fff', padding: '16px 20px', borderRadius: 10, border: '1px solid #e2e8f0' }}>
           <span style={{ fontSize: 12, color: '#64748b', fontWeight: 600 }}>Total Buku Registrasi</span>
           <div style={{ fontSize: 26, fontWeight: 800, color: '#0f172a', marginTop: 4 }}>{totalRegistered}</div>
@@ -46,6 +47,10 @@ export default async function SekretarisDashboardPage() {
         <div style={{ background: '#fff', padding: '16px 20px', borderRadius: 10, border: '1px solid #e2e8f0' }}>
           <span style={{ fontSize: 12, color: '#3b82f6', fontWeight: 600 }}>Dalam Penanganan</span>
           <div style={{ fontSize: 26, fontWeight: 800, color: '#3b82f6', marginTop: 4 }}>{activeCases}</div>
+        </div>
+        <div style={{ background: '#fff', padding: '16px 20px', borderRadius: 10, border: '1px solid #fed7aa' }}>
+          <span style={{ fontSize: 12, color: '#c2410c', fontWeight: 700 }}>Verifikasi Berkas Hasil</span>
+          <div style={{ fontSize: 26, fontWeight: 800, color: '#c2410c', marginTop: 4 }}>{pendingVerification}</div>
         </div>
         <div style={{ background: '#fff', padding: '16px 20px', borderRadius: 10, border: '1px solid #e2e8f0' }}>
           <span style={{ fontSize: 12, color: '#16a34a', fontWeight: 600 }}>Telah Diarsipkan (Dossier)</span>
@@ -62,16 +67,28 @@ export default async function SekretarisDashboardPage() {
             </h3>
             <span style={{ fontSize: 12, color: '#64748b' }}>Urutan kronologis pendaftaran pemohon bantuan hukum</span>
           </div>
-          <Link
-            href="/sekretaris/gelar-kasus"
-            style={{
-              display: 'inline-flex', alignItems: 'center', gap: 6,
-              background: '#16a34a', color: '#fff', padding: '8px 14px',
-              borderRadius: 6, fontSize: 13, fontWeight: 600, textDecoration: 'none'
-            }}
-          >
-            Agenda Gelar Kasus (BAGK) <ArrowUpRight size={15} />
-          </Link>
+          <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+            <Link
+              href="/sekretaris/verifikasi"
+              style={{
+                display: 'inline-flex', alignItems: 'center', gap: 6,
+                background: '#c2410c', color: '#fff', padding: '8px 14px',
+                borderRadius: 6, fontSize: 13, fontWeight: 600, textDecoration: 'none'
+              }}
+            >
+              Verifikasi Berkas ({pendingVerification}) <ArrowUpRight size={15} />
+            </Link>
+            <Link
+              href="/sekretaris/gelar-kasus"
+              style={{
+                display: 'inline-flex', alignItems: 'center', gap: 6,
+                background: '#16a34a', color: '#fff', padding: '8px 14px',
+                borderRadius: 6, fontSize: 13, fontWeight: 600, textDecoration: 'none'
+              }}
+            >
+              Agenda Gelar Kasus (BAGK) <ArrowUpRight size={15} />
+            </Link>
+          </div>
         </div>
 
         <div style={{ overflowX: 'auto' }}>
@@ -124,26 +141,34 @@ export default async function SekretarisDashboardPage() {
                       background:
                         c.status === 'DIAJUKAN' ? '#fef3c7' :
                         c.status === 'DIVERIFIKASI' ? '#eff6ff' :
+                        c.status === 'MENUNGGU_VERIFIKASI_SEKRETARIS' ? '#fff7ed' :
                         c.status === 'SELESAI' ? '#f0fdf4' : '#f1f5f9',
                       color:
                         c.status === 'DIAJUKAN' ? '#b45309' :
                         c.status === 'DIVERIFIKASI' ? '#1d4ed8' :
+                        c.status === 'MENUNGGU_VERIFIKASI_SEKRETARIS' ? '#c2410c' :
                         c.status === 'SELESAI' ? '#15803d' : '#475569'
                     }}>
-                      {c.status}
+                      {c.status === 'MENUNGGU_VERIFIKASI_SEKRETARIS' ? 'VERIFIKASI BERKAS' : c.status}
                     </span>
                   </td>
 
                   <td style={{ padding: '14px 18px', verticalAlign: 'top', textAlign: 'right' }}>
                     <Link
-                      href={`/admin/kasus/${c.id}`}
+                      href={
+                        c.status === 'MENUNGGU_VERIFIKASI_SEKRETARIS'
+                          ? '/sekretaris/verifikasi'
+                          : c.status === 'SELESAI'
+                          ? '/sekretaris/dossier'
+                          : '/sekretaris/gelar-kasus'
+                      }
                       style={{
                         display: 'inline-flex', alignItems: 'center', gap: 4,
                         padding: '6px 12px', background: '#f8fafc', border: '1px solid #cbd5e1',
                         borderRadius: 6, fontSize: 12, fontWeight: 600, color: '#334155', textDecoration: 'none'
                       }}
                     >
-                      Buka Berkas
+                      {c.status === 'MENUNGGU_VERIFIKASI_SEKRETARIS' ? 'Telaah Berkas' : 'Buka Detail'}
                     </Link>
                   </td>
                 </tr>

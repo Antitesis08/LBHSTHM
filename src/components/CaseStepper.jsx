@@ -7,6 +7,7 @@ const STEPS = [
   { key: 'DIVERIFIKASI', label: 'Diverifikasi' },
   { key: 'DITUGASKAN', label: 'Ditugaskan' },
   { key: 'PROSES', label: 'Dalam Proses' },
+  { key: 'MENUNGGU_VERIFIKASI_SEKRETARIS', label: 'Verifikasi Berkas' },
   { key: 'SELESAI', label: 'Selesai' },
 ];
 
@@ -16,7 +17,8 @@ const statusIndex = {
   DITUGASKAN: 2,
   PROSES: 3,
   MENUNGGU_DOKUMEN: 3,
-  SELESAI: 4,
+  MENUNGGU_VERIFIKASI_SEKRETARIS: 4,
+  SELESAI: 5,
   DITOLAK: -1,
 };
 
@@ -111,8 +113,19 @@ export default function CaseStepper({ status, consultant }) {
         </div>
       )}
 
-      {/* Consultant info card (only show when status is DITUGASKAN or PROSES and consultant exists) */}
-      {(status === 'DITUGASKAN' || status === 'PROSES' || status === 'MENUNGGU_DOKUMEN') && consultant && (
+      {status === 'MENUNGGU_VERIFIKASI_SEKRETARIS' && (
+        <div style={{
+          display: 'flex', gap: 10, alignItems: 'center', marginTop: 16,
+          background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 8,
+          padding: '12px 16px', color: '#92400e', fontSize: 13,
+        }}>
+          <Clock3 size={18} />
+          <span>Dokumen bukti hasil penanganan perkara telah diajukan oleh konsultan dan sedang dalam proses penelaahan administrasi (verifikasi) oleh Sekretariat LKBH STHM.</span>
+        </div>
+      )}
+
+      {/* Consultant info card (only show when status is DITUGASKAN, PROSES, or MENUNGGU_VERIFIKASI_SEKRETARIS and consultant exists) */}
+      {(status === 'DITUGASKAN' || status === 'PROSES' || status === 'MENUNGGU_DOKUMEN' || status === 'MENUNGGU_VERIFIKASI_SEKRETARIS') && consultant && (
         <div style={{
           display: 'flex', gap: 14, alignItems: 'center', marginTop: 16,
           background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 10,

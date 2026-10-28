@@ -13,6 +13,7 @@ import {
   MessageCircle,
   Users,
   FileText,
+  FileCheck,
   ChevronDown
 } from 'lucide-react';
 
@@ -54,9 +55,11 @@ export default function TopNavbar({ role, userName }) {
     navItems.push({ label: 'Kasus Saya', href: '/customer/dashboard', icon: ClipboardList });
     navItems.push({ label: 'Ajukan Bantuan', href: '/customer/pengajuan', icon: FileText });
   } else if (role === 'CONSULTANT') {
-    navItems.push({ label: 'Kasus Ditugaskan', href: '/consultant/dashboard', icon: ClipboardList });
+    navItems.push({ label: 'Dashboard', href: '/consultant/dashboard', icon: LayoutDashboard });
+    navItems.push({ label: 'Kasus Ditugaskan', href: '/consultant/kasus', icon: ClipboardList });
   } else if (role === 'SEKRETARIS') {
     navItems.push({ label: 'Buku Induk Registrasi', href: '/sekretaris/dashboard', icon: ClipboardList });
+    navItems.push({ label: 'Verifikasi Berkas', href: '/sekretaris/verifikasi', icon: FileCheck });
     navItems.push({ label: 'Gelar Kasus (BAGK)', href: '/sekretaris/gelar-kasus', icon: FileText });
     navItems.push({ label: 'Arsip Dossier', href: '/sekretaris/dossier', icon: LayoutDashboard });
   } else if (role === 'BENDAHARA') {

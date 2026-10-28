@@ -51,6 +51,8 @@ export default async function ConsultantCaseDetailPage({ params }) {
     ...caseData,
     createdAt: caseData.createdAt.toISOString(),
     updatedAt: caseData.updatedAt.toISOString(),
+    closingSubmittedAt: caseData.closingSubmittedAt ? caseData.closingSubmittedAt.toISOString() : null,
+    closingApprovedAt: caseData.closingApprovedAt ? caseData.closingApprovedAt.toISOString() : null,
     consultant: caseData.consultant
       ? {
           name: caseData.consultant.user.name,

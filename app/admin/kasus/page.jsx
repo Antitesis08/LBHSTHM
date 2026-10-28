@@ -9,6 +9,7 @@ function statusBadge(status) {
     DITUGASKAN: { label: 'Ditugaskan', tone: 'success' },
     PROSES: { label: 'Proses', tone: 'info' },
     MENUNGGU_DOKUMEN: { label: 'Menunggu Dokumen', tone: 'warning' },
+    MENUNGGU_VERIFIKASI_SEKRETARIS: { label: 'Verifikasi Berkas', tone: 'warning' },
     SELESAI: { label: 'Selesai', tone: 'success' },
     DITOLAK: { label: 'Ditolak', tone: 'danger' },
   };
@@ -35,7 +36,7 @@ export default async function AdminCasesPage({ searchParams }) {
       <p style={{ color: '#657068', marginBottom: 20 }}>Verifikasi pengajuan, tugaskan konsultan, dan pantau status kasus.</p>
       <div style={{ marginBottom: 16 }}>
         <a href="/admin/kasus" style={{ marginRight: 8, color: '#3b4a2e' }}>Semua</a>
-        {['DIAJUKAN', 'DIVERIFIKASI', 'DITUGASKAN', 'PROSES', 'MENUNGGU_DOKUMEN', 'SELESAI', 'DITOLAK'].map((item) => (
+        {['DIAJUKAN', 'DIVERIFIKASI', 'DITUGASKAN', 'PROSES', 'MENUNGGU_DOKUMEN', 'MENUNGGU_VERIFIKASI_SEKRETARIS', 'SELESAI', 'DITOLAK'].map((item) => (
           <a key={item} href={`/admin/kasus?status=${item}`} style={{ marginRight: 8, color: '#3b4a2e' }}>{item}</a>
         ))}
       </div>

@@ -59,6 +59,14 @@ export default function CaseDetailClient({ caseData, user, role }) {
   const [finishingCase, setFinishingCase] = useState(false);
   const [currentStage, setCurrentStage] = useState(caseData.litigationStage || LITIGATION_STAGES[0]);
 
+  // Case completion & submission states
+  const [showSubmitCompletionModal, setShowSubmitCompletionModal] = useState(false);
+  const [completionNotes, setCompletionNotes] = useState(caseData.closingNotes || caseData.consultationNotes || '');
+  const [completionDocSource, setCompletionDocSource] = useState('UPLOAD'); // 'UPLOAD' | 'EXISTING'
+  const [selectedExistingDocId, setSelectedExistingDocId] = useState('');
+  const [uploadedClosingFile, setUploadedClosingFile] = useState(null);
+  const [submittingCompletion, setSubmittingCompletion] = useState(false);
+
   // New hearing form state
   const [newHearing, setNewHearing] = useState({
     title: '',
@@ -175,27 +183,59 @@ export default function CaseDetailClient({ caseData, user, role }) {
     }
   };
 
-  // Finish case
-  const handleFinishCase = async () => {
-    if (!confirm('Apakah Anda yakin ingin menyelesaikan penanganan perkara ini? Status akan diubah menjadi SELESAI.')) return;
-    setFinishingCase(true);
+  // Submit case completion with result document to Sekretaris LKBH
+  const handleSubmitCompletion = async (e) => {
+    e?.preventDefault();
+    if (!completionNotes.trim()) {
+      notify('Catatan ringkasan penyelesaian perkara wajib diisi.');
+      return;
+    }
+    if (completionDocSource === 'UPLOAD' && !uploadedClosingFile) {
+      notify('Silakan pilih berkas dokumen hasil (PDF) yang akan diunggah.');
+      return;
+    }
+    if (completionDocSource === 'EXISTING' && !selectedExistingDocId) {
+      notify('Silakan pilih salah satu dokumen resmi LKBH dari daftar.');
+      return;
+    }
+
+    setSubmittingCompletion(true);
     try {
-      const res = await fetch(`/api/cases/${caseData.id}/process`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status: 'SELESAI' })
+      const formData = new FormData();
+      formData.append('closingNotes', completionNotes.trim());
+      if (completionDocSource === 'UPLOAD') {
+        formData.append('file', uploadedClosingFile);
+      } else {
+        formData.append('selectedDocId', selectedExistingDocId);
+      }
+
+      const res = await fetch(`/api/cases/${currentCase.id}/submit-completion`, {
+        method: 'POST',
+        body: formData,
       });
       const data = await res.json();
       if (res.ok) {
-        setCurrentCase((prev) => ({ ...prev, status: 'SELESAI' }));
-        notify('Penanganan perkara resmi SELESAI.');
+        setCurrentCase((prev) => ({
+          ...prev,
+          status: 'MENUNGGU_VERIFIKASI_SEKRETARIS',
+          closingNotes: completionNotes.trim(),
+          closingDocUrl: data.case?.closingDocUrl || prev.closingDocUrl,
+          closingDocName: data.case?.closingDocName || (uploadedClosingFile ? uploadedClosingFile.name : prev.closingDocName),
+          closingSubmittedAt: new Date().toISOString(),
+          closingRejectionReason: null,
+        }));
+        if (data.case?.documents) {
+          setDocs(data.case.documents);
+        }
+        setShowSubmitCompletionModal(false);
+        notify('Dokumen hasil berhasil diajukan ke Sekretaris LKBH untuk verifikasi.');
       } else {
         notify(`Gagal: ${data.error}`);
       }
     } catch {
-      notify('Gagal menyelesaikan perkara.');
+      notify('Terjadi kesalahan jaringan saat mengajukan penyelesaian.');
     } finally {
-      setFinishingCase(false);
+      setSubmittingCompletion(false);
     }
   };
 
@@ -258,6 +298,18 @@ export default function CaseDetailClient({ caseData, user, role }) {
               {currentCase.title}
             </h1>
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+              <span style={{
+                display: 'inline-block', fontSize: 12, padding: '4px 10px',
+                borderRadius: 6,
+                background: currentCase.isProBono ? '#ecfdf5' : '#f8fafc',
+                color: currentCase.isProBono ? '#047857' : '#475569',
+                border: currentCase.isProBono ? '1px solid #a7f3d0' : '1px solid #cbd5e1',
+                fontWeight: 600,
+              }}>
+                {currentCase.isProBono
+                  ? 'Kategori: Pro Bono (Cuma-Cuma / Tidak Mampu)'
+                  : 'Kategori: Layanan Umum (Mampu)'}
+              </span>
               <span style={{
                 display: 'inline-block', fontSize: 12, padding: '4px 10px',
                 borderRadius: 6, background: currentCase.serviceType ? '#f0fdf4' : '#fef3c7',
@@ -453,17 +505,91 @@ export default function CaseDetailClient({ caseData, user, role }) {
                     <Plus size={15} /> Tambah Agenda Sidang
                   </button>
                 )}
-                {currentCase.status !== 'SELESAI' && (
+                {currentCase.status === 'SELESAI' ? (
+                  <div style={{
+                    display: 'inline-flex', alignItems: 'center', gap: 6,
+                    padding: '8px 16px', background: '#dcfce7', border: '1px solid #bbf7d0',
+                    color: '#15803d', borderRadius: 8, fontSize: 13, fontWeight: 700
+                  }}>
+                    <CheckCircle2 size={16} /> Perkara Resmi Selesai (ACC)
+                  </div>
+                ) : currentCase.status === 'MENUNGGU_VERIFIKASI_SEKRETARIS' ? (
+                  <div style={{
+                    display: 'inline-flex', alignItems: 'center', gap: 6,
+                    padding: '8px 16px', background: '#fff7ed', border: '1px solid #fed7aa',
+                    color: '#c2410c', borderRadius: 8, fontSize: 13, fontWeight: 700
+                  }}>
+                    <Clock size={16} /> Menunggu Verifikasi Sekretariat
+                  </div>
+                ) : (
                   <button
-                    onClick={handleFinishCase}
-                    disabled={finishingCase}
+                    onClick={() => setShowSubmitCompletionModal(true)}
                     style={{
                       display: 'inline-flex', alignItems: 'center', gap: 6,
-                      padding: '8px 16px', background: '#0f172a', color: '#fff',
+                      padding: '8px 16px', background: 'var(--primary, #3b4a2e)', color: '#fff',
                       border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: 'pointer'
                     }}
                   >
-                    <CheckCircle2 size={15} /> {finishingCase ? 'Menyimpan...' : 'Tandai Perkara Selesai'}
+                    <FileCheck size={15} /> Ajukan Dokumen Hasil (Selesaikan Perkara)
+                  </button>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Alert Status Verifikasi Sekretaris */}
+          {currentCase.status === 'MENUNGGU_VERIFIKASI_SEKRETARIS' && (
+            <div style={{
+              background: '#fff7ed', borderRadius: 12, padding: '18px 24px',
+              border: '1px solid #fed7aa', display: 'flex', alignItems: 'flex-start',
+              gap: 14, boxShadow: '0 2px 8px rgba(194, 65, 12, 0.06)'
+            }}>
+              <div style={{ width: 36, height: 36, borderRadius: 8, background: '#ea580c', color: '#fff', display: 'grid', placeItems: 'center', flexShrink: 0 }}>
+                <Clock size={20} />
+              </div>
+              <div style={{ flex: 1 }}>
+                <h4 style={{ margin: '0 0 4px', fontSize: 15, fontWeight: 700, color: '#9a3412' }}>
+                  Dokumen Hasil Telah Diajukan & Menunggu Verifikasi Sekretaris LKBH
+                </h4>
+                <p style={{ margin: '0 0 8px', fontSize: 13, color: '#431407', lineHeight: 1.5 }}>
+                  Dokumen bukti hasil penanganan: <strong>{currentCase.closingDocName || 'Dokumen Hasil'}</strong> telah dikirimkan ke Sekretaris LKBH. Kasus akan resmi tuntas dan masuk ke Buku Induk Dossier setelah dilakukan ACC oleh Sekretariat.
+                </p>
+                {currentCase.closingNotes && (
+                  <div style={{ background: '#fff', padding: '10px 14px', borderRadius: 8, border: '1px solid #fed7aa', fontSize: 12, color: '#7c2d12' }}>
+                    <strong>Ringkasan Penanganan yang Diajukan:</strong> {currentCase.closingNotes}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Alert Penolakan dari Sekretaris (Revisi Diperlukan) */}
+          {currentCase.closingRejectionReason && currentCase.status === 'PROSES' && (
+            <div style={{
+              background: '#fef2f2', borderRadius: 12, padding: '18px 24px',
+              border: '1px solid #fecaca', display: 'flex', alignItems: 'flex-start',
+              gap: 14, boxShadow: '0 2px 8px rgba(220, 38, 38, 0.06)'
+            }}>
+              <div style={{ width: 36, height: 36, borderRadius: 8, background: '#dc2626', color: '#fff', display: 'grid', placeItems: 'center', flexShrink: 0 }}>
+                <ShieldAlert size={20} />
+              </div>
+              <div style={{ flex: 1 }}>
+                <h4 style={{ margin: '0 0 4px', fontSize: 15, fontWeight: 700, color: '#991b1b' }}>
+                  Permintaan Revisi Dokumen Hasil dari Sekretaris LKBH
+                </h4>
+                <p style={{ margin: '0 0 10px', fontSize: 13, color: '#7f1d1d', lineHeight: 1.5 }}>
+                  Catatan Evaluasi Sekretariat: <strong>"{currentCase.closingRejectionReason}"</strong>
+                </p>
+                {role === 'CONSULTANT' && (
+                  <button
+                    onClick={() => setShowSubmitCompletionModal(true)}
+                    style={{
+                      display: 'inline-flex', alignItems: 'center', gap: 6,
+                      padding: '8px 16px', background: '#991b1b', color: '#fff',
+                      border: 'none', borderRadius: 6, fontSize: 12, fontWeight: 700, cursor: 'pointer'
+                    }}
+                  >
+                    <FileCheck size={14} /> Ajukan Ulang Berkas Revisi
                   </button>
                 )}
               </div>
@@ -692,11 +818,42 @@ export default function CaseDetailClient({ caseData, user, role }) {
 
       {/* TAB 2: KRONOLOGI KASUS */}
       {activeTab === 'detail' && (
-        <div style={{ background: '#fff', borderRadius: 12, padding: '24px 28px', border: '1px solid var(--line, #e2e6e3)' }}>
-          <h2 style={{ fontSize: 15, fontWeight: 600, marginBottom: 12, color: '#1a1f1b' }}>Deskripsi Perkara & Kronologi</h2>
-          <p style={{ fontSize: 14, color: '#3a4a3d', lineHeight: 1.7, whiteSpace: 'pre-wrap' }}>
-            {currentCase.description || 'Tidak ada deskripsi.'}
-          </p>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+          {/* Info Kategori Permohonan */}
+          <div style={{
+            background: currentCase.isProBono ? '#f0fdf4' : '#f8fafc',
+            border: currentCase.isProBono ? '1px solid #bbf7d0' : '1px solid #e2e8f0',
+            borderRadius: 12, padding: '16px 20px',
+            display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 12
+          }}>
+            <div>
+              <span style={{ fontSize: 11, fontWeight: 700, color: currentCase.isProBono ? '#166534' : '#475569', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                Kategori Permohonan
+              </span>
+              <h4 style={{ margin: '2px 0 0', fontSize: 15, fontWeight: 700, color: currentCase.isProBono ? '#14532d' : '#0f172a' }}>
+                {currentCase.isProBono ? 'Bantuan Hukum Pro Bono (Masyarakat Tidak Mampu)' : 'Layanan Hukum Umum (Masyarakat Mampu)'}
+              </h4>
+              <p style={{ margin: '4px 0 0', fontSize: 12, color: '#64748b' }}>
+                {currentCase.isProBono
+                  ? 'Berkas verifikasi mencakup KTP, Surat Keterangan Tidak Mampu (SKTM), dan Dokumen Pendukung Perkara.'
+                  : 'Berkas verifikasi mencakup KTP dan Dokumen Pendukung Perkara.'}
+              </p>
+            </div>
+            <div style={{
+              padding: '6px 12px', borderRadius: 8, fontSize: 12, fontWeight: 600,
+              background: currentCase.isProBono ? '#dcfce7' : '#e2e8f0',
+              color: currentCase.isProBono ? '#15803d' : '#334155'
+            }}>
+              {currentCase.isProBono ? 'Bebas Biaya / Pro Bono' : 'Jalur Umum'}
+            </div>
+          </div>
+
+          <div style={{ background: '#fff', borderRadius: 12, padding: '24px 28px', border: '1px solid var(--line, #e2e6e3)' }}>
+            <h2 style={{ fontSize: 15, fontWeight: 600, marginBottom: 12, color: '#1a1f1b' }}>Deskripsi Perkara & Kronologi</h2>
+            <p style={{ fontSize: 14, color: '#3a4a3d', lineHeight: 1.7, whiteSpace: 'pre-wrap' }}>
+              {currentCase.description || 'Tidak ada deskripsi.'}
+            </p>
+          </div>
         </div>
       )}
 
@@ -836,6 +993,188 @@ export default function CaseDetailClient({ caseData, user, role }) {
           onGenerated={handleGenerated}
           onNotify={notify}
         />
+      )}
+
+      {/* Modal Pengajuan Dokumen Hasil & Penyelesaian Perkara */}
+      {showSubmitCompletionModal && (
+        <div
+          style={{
+            position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)',
+            display: 'grid', placeItems: 'center', padding: 20, zIndex: 1000,
+          }}
+          onClick={() => setShowSubmitCompletionModal(false)}
+        >
+          <div
+            style={{
+              background: '#fff', borderRadius: 14, padding: '26px 28px',
+              width: '100%', maxWidth: 560, boxShadow: '0 20px 40px rgba(0,0,0,0.25)',
+              maxHeight: '90vh', overflowY: 'auto'
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <div style={{ width: 40, height: 40, borderRadius: 10, background: '#f0fdf4', color: '#16a34a', display: 'grid', placeItems: 'center' }}>
+                  <FileCheck size={22} />
+                </div>
+                <div>
+                  <h3 style={{ margin: 0, fontSize: 17, fontWeight: 700, color: '#0f172a' }}>
+                    Ajukan Dokumen Hasil & Penyelesaian Perkara
+                  </h3>
+                  <span style={{ fontSize: 12, color: '#64748b' }}>
+                    SOP-06: Penutupan Berkas Perkara LKBH STHM
+                  </span>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowSubmitCompletionModal(false)}
+                style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#94a3b8' }}
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            <p style={{ fontSize: 13, color: '#475569', lineHeight: 1.5, marginBottom: 18 }}>
+              Lampirkan dokumen bukti penyelesaian penanganan hukum (seperti Berita Acara Mediasi, Akta Perdamaian, Salinan Putusan, atau Laporan Akhir Konsultasi). Berkas ini akan dikirimkan kepada <strong>Sekretaris LKBH</strong> untuk penelaahan administrasi dan persetujuan (ACC).
+            </p>
+
+            <form onSubmit={handleSubmitCompletion}>
+              {/* Pilihan Sumber Dokumen Hasil */}
+              <div style={{ marginBottom: 18 }}>
+                <label style={{ display: 'block', fontSize: 13, fontWeight: 600, color: '#334155', marginBottom: 8 }}>
+                  Pilihan Sumber Dokumen Hasil: <span style={{ color: '#dc2626' }}>*</span>
+                </label>
+                <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap' }}>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, cursor: 'pointer', color: '#1e293b' }}>
+                    <input
+                      type="radio"
+                      name="docSource"
+                      value="UPLOAD"
+                      checked={completionDocSource === 'UPLOAD'}
+                      onChange={() => setCompletionDocSource('UPLOAD')}
+                    />
+                    <strong>Unggah Berkas Baru (PDF)</strong>
+                  </label>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13, cursor: 'pointer', color: '#1e293b' }}>
+                    <input
+                      type="radio"
+                      name="docSource"
+                      value="EXISTING"
+                      checked={completionDocSource === 'EXISTING'}
+                      onChange={() => {
+                        setCompletionDocSource('EXISTING');
+                        if (!selectedExistingDocId && docs.length > 0) {
+                          setSelectedExistingDocId(docs[0].id);
+                        }
+                      }}
+                    />
+                    <strong>Pilih Dokumen yang Sudah Ada</strong>
+                  </label>
+                </div>
+              </div>
+
+              {/* Input File Upload */}
+              {completionDocSource === 'UPLOAD' ? (
+                <div style={{
+                  marginBottom: 18, padding: '16px 18px', background: '#f8fafc',
+                  borderRadius: 10, border: '1px dashed #cbd5e1'
+                }}>
+                  <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: '#334155', marginBottom: 6 }}>
+                    Unggah File Berkas Bukti Hasil (.pdf, maks 15MB): <span style={{ color: '#dc2626' }}>*</span>
+                  </label>
+                  <input
+                    type="file"
+                    accept=".pdf,.doc,.docx"
+                    required={completionDocSource === 'UPLOAD'}
+                    onChange={(e) => setUploadedClosingFile(e.target.files?.[0] || null)}
+                    style={{ fontSize: 13, width: '100%' }}
+                  />
+                  {uploadedClosingFile && (
+                    <div style={{ marginTop: 8, fontSize: 12, color: '#16a34a', fontWeight: 600 }}>
+                      File dipilih: {uploadedClosingFile.name} ({(uploadedClosingFile.size / 1024).toFixed(1)} KB)
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div style={{ marginBottom: 18 }}>
+                  <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: '#334155', marginBottom: 6 }}>
+                    Pilih Dokumen Resmi dari Daftar Berkas Perkara: <span style={{ color: '#dc2626' }}>*</span>
+                  </label>
+                  {docs.length === 0 ? (
+                    <p style={{ fontSize: 12, color: '#dc2626', margin: 0 }}>
+                      Belum ada dokumen yang dibuat pada perkara ini. Silakan gunakan opsi unggah berkas baru.
+                    </p>
+                  ) : (
+                    <select
+                      value={selectedExistingDocId}
+                      onChange={(e) => setSelectedExistingDocId(e.target.value)}
+                      required={completionDocSource === 'EXISTING'}
+                      style={{
+                        width: '100%', padding: '10px 12px', borderRadius: 8,
+                        border: '1px solid #cbd5e1', fontSize: 13, background: '#fff'
+                      }}
+                    >
+                      <option value="">-- Pilih Dokumen Resmi --</option>
+                      {docs.map((d) => (
+                        <option key={d.id} value={d.id}>
+                          {d.fileName} ({d.source})
+                        </option>
+                      ))}
+                    </select>
+                  )}
+                </div>
+              )}
+
+              {/* Ringkasan Laporan Akhir */}
+              <div style={{ marginBottom: 20 }}>
+                <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: '#334155', marginBottom: 6 }}>
+                  Ringkasan Laporan Hasil Penanganan Perkara: <span style={{ color: '#dc2626' }}>*</span>
+                </label>
+                <textarea
+                  rows={4}
+                  value={completionNotes}
+                  onChange={(e) => setCompletionNotes(e.target.value)}
+                  placeholder="Jelaskan ringkasan hasil akhir konsultasi/pendampingan, putusan majelis hakim, kesepakatan damai mediasi, atau solusi hukum yang telah dicapai..."
+                  required
+                  style={{
+                    width: '100%', padding: '10px 14px', borderRadius: 8,
+                    border: '1px solid #cbd5e1', fontSize: 13, lineHeight: 1.5,
+                    fontFamily: 'inherit', boxSizing: 'border-box'
+                  }}
+                />
+              </div>
+
+              {/* Buttons */}
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
+                <button
+                  type="button"
+                  onClick={() => setShowSubmitCompletionModal(false)}
+                  disabled={submittingCompletion}
+                  style={{
+                    background: 'none', border: '1px solid #cbd5e1',
+                    padding: '8px 16px', borderRadius: 8, fontSize: 13,
+                    color: '#64748b', cursor: 'pointer', fontWeight: 600
+                  }}
+                >
+                  Batal
+                </button>
+                <button
+                  type="submit"
+                  disabled={submittingCompletion}
+                  style={{
+                    background: 'var(--primary, #3b4a2e)', color: '#fff',
+                    border: 'none', padding: '9px 18px', borderRadius: 8,
+                    fontSize: 13, fontWeight: 600, cursor: 'pointer',
+                    display: 'inline-flex', alignItems: 'center', gap: 8
+                  }}
+                >
+                  <Send size={15} />
+                  {submittingCompletion ? 'Mengirimkan...' : 'Kirim Berkas ke Sekretaris LKBH'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
       )}
 
       {/* Toast Notification */}

@@ -12,7 +12,7 @@ import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
  *   ADMIN → bebas semua
  */
 export async function GET(request, { params }) {
-  const { user, error } = await requireRole(['CUSTOMER', 'CONSULTANT', 'ADMIN']);
+  const { user, error } = await requireRole(['CUSTOMER', 'CONSULTANT', 'ADMIN', 'SEKRETARIS', 'PARALEGAL', 'PENGAWAS']);
   if (error) return error;
 
   const { id: documentId } = await params;

@@ -54,13 +54,14 @@ export async function POST(request) {
       const code = await generateCaseCode(tx);
 
       // 2. Create Case (without initial consultant & serviceType decided later in LBH meeting)
+      const isProBono = Boolean(data.isProBono);
       const caseRecord = await tx.case.create({
         data: {
           code,
           title: data.title,
           description: data.description,
-          serviceType: data.serviceType || null,
-          isProBono: false,
+          serviceType: data.serviceType || (isProBono ? 'PRO_BONO' : null),
+          isProBono,
           clientId: auth.user.id,
           consultantId: null, // Konsultan akan ditentukan oleh Admin setelah rapat & Legal Opinion
           status: 'DIAJUKAN',

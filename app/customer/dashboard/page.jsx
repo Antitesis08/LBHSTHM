@@ -20,6 +20,7 @@ function statusBadge(status) {
     DITUGASKAN: { label: 'Ditugaskan', bg: '#dcfce7', color: '#166534' },
     PROSES: { label: 'Proses', bg: '#dbeafe', color: '#1e40af' },
     MENUNGGU_DOKUMEN: { label: 'Menunggu Dokumen', bg: '#fef3c7', color: '#92400e' },
+    MENUNGGU_VERIFIKASI_SEKRETARIS: { label: 'Verifikasi Berkas', bg: '#fff7ed', color: '#c2410c' },
     SELESAI: { label: 'Selesai', bg: '#dcfce7', color: '#166534' },
     DITOLAK: { label: 'Ditolak', bg: '#fee2e2', color: '#991b1b' },
   };

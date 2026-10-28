@@ -5,11 +5,12 @@ const VALID_TRANSITIONS = {
   DIAJUKAN: ['DIVERIFIKASI', 'DITUGASKAN', 'DITOLAK'],
   DIVERIFIKASI: ['DITUGASKAN', 'DITOLAK'],
   DITUGASKAN: ['PROSES', 'DITOLAK'],
-  PROSES: ['SELESAI', 'MENUNGGU_DOKUMEN', 'DITOLAK'],
-  MENUNGGU_DOKUMEN: ['PROSES', 'SELESAI', 'DITOLAK'],
+  PROSES: ['SELESAI', 'MENUNGGU_DOKUMEN', 'MENUNGGU_VERIFIKASI_SEKRETARIS', 'DITOLAK'],
+  MENUNGGU_DOKUMEN: ['PROSES', 'MENUNGGU_VERIFIKASI_SEKRETARIS', 'SELESAI', 'DITOLAK'],
+  MENUNGGU_VERIFIKASI_SEKRETARIS: ['SELESAI', 'PROSES', 'DITOLAK'],
 };
 
-const ALLOWED_STATUSES = ['DIVERIFIKASI', 'DITUGASKAN', 'PROSES', 'MENUNGGU_DOKUMEN', 'SELESAI', 'DITOLAK'];
+const ALLOWED_STATUSES = ['DIVERIFIKASI', 'DITUGASKAN', 'PROSES', 'MENUNGGU_DOKUMEN', 'MENUNGGU_VERIFIKASI_SEKRETARIS', 'SELESAI', 'DITOLAK'];
 
 export async function PATCH(request, { params }) {
   const { user, error } = await requireRole(['ADMIN', 'CONSULTANT', 'SEKRETARIS']);
@@ -50,7 +51,7 @@ export async function PATCH(request, { params }) {
     if (caseRecord.consultant?.userId !== user.id) {
       return Response.json({ error: 'Akses ditolak.' }, { status: 403 });
     }
-    if (!['PROSES', 'MENUNGGU_DOKUMEN', 'SELESAI'].includes(status)) {
+    if (!['PROSES', 'MENUNGGU_DOKUMEN', 'MENUNGGU_VERIFIKASI_SEKRETARIS', 'SELESAI'].includes(status)) {
       return Response.json({ error: 'Konsultan hanya dapat memperbarui status pelaksanaan kasus.' }, { status: 403 });
     }
   }

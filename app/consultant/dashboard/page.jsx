@@ -19,6 +19,7 @@ function statusBadge(status) {
     DITUGASKAN: { label: 'Ditugaskan', bg: '#dcfce7', color: '#166534' },
     PROSES: { label: 'Proses', bg: '#dbeafe', color: '#1e40af' },
     MENUNGGU_DOKUMEN: { label: 'Menunggu Dokumen', bg: '#fef3c7', color: '#92400e' },
+    MENUNGGU_VERIFIKASI_SEKRETARIS: { label: 'Verifikasi Berkas', bg: '#fff7ed', color: '#c2410c' },
     SELESAI: { label: 'Selesai', bg: '#dcfce7', color: '#166534' },
     DITOLAK: { label: 'Ditolak', bg: '#fee2e2', color: '#991b1b' },
   };
@@ -46,7 +47,8 @@ export default async function ConsultantDashboardPage() {
   });
 
   const countByStatus = {
-    active: cases.filter((c) => !['SELESAI', 'DITOLAK'].includes(c.status)).length,
+    active: cases.filter((c) => ['DITUGASKAN', 'PROSES', 'MENUNGGU_DOKUMEN'].includes(c.status)).length,
+    waitingReview: cases.filter((c) => c.status === 'MENUNGGU_VERIFIKASI_SEKRETARIS').length,
     completed: cases.filter((c) => c.status === 'SELESAI').length,
     total: cases.length,
   };
@@ -73,9 +75,10 @@ export default async function ConsultantDashboardPage() {
       {/* Summary cards */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 16, marginBottom: 28 }}>
         {[
-          { label: 'Total Kasus', value: countByStatus.total, accent: '#3b4a2e' },
-          { label: 'Kasus Aktif', value: countByStatus.active, accent: '#1e40af' },
-          { label: 'Selesai', value: countByStatus.completed, accent: '#166534' },
+          { label: 'Total Kasus Ditugaskan', value: countByStatus.total, accent: '#3b4a2e' },
+          { label: 'Kasus Aktif / Proses', value: countByStatus.active, accent: '#1e40af' },
+          { label: 'Verifikasi Berkas Sekretariat', value: countByStatus.waitingReview, accent: '#c2410c' },
+          { label: 'Selesai / Tuntas', value: countByStatus.completed, accent: '#166534' },
         ].map((card) => (
           <div key={card.label} style={{ background: '#fff', borderRadius: 12, border: '1px solid #e5e7eb', padding: '20px 24px' }}>
             <p style={{ fontSize: 13, color: '#657068', marginBottom: 4 }}>{card.label}</p>
@@ -86,8 +89,14 @@ export default async function ConsultantDashboardPage() {
 
       {/* Cases table */}
       <div style={{ background: '#fff', borderRadius: 12, border: '1px solid #e5e7eb', overflow: 'hidden' }}>
-        <div style={{ padding: '16px 20px', borderBottom: '1px solid #f0f0f0' }}>
-          <h2 style={{ fontSize: 16, fontWeight: 600 }}>Kasus Ditugaskan</h2>
+        <div style={{ padding: '16px 20px', borderBottom: '1px solid #f0f0f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <h2 style={{ fontSize: 16, fontWeight: 600, margin: 0 }}>Kasus Ditugaskan Terbaru</h2>
+          <Link
+            href="/consultant/kasus"
+            style={{ fontSize: 13, fontWeight: 600, color: 'var(--primary, #3b4a2e)', textDecoration: 'none' }}
+          >
+            Buka Daftar Lengkap Penugasan &rarr;
+          </Link>
         </div>
         {cases.length === 0 ? (
           <div style={{ padding: 40, textAlign: 'center', color: '#657068' }}>

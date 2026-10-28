@@ -38,6 +38,7 @@ enum CaseStatus {
   DITUGASKAN
   PROSES
   MENUNGGU_DOKUMEN
+  MENUNGGU_VERIFIKASI_SEKRETARIS
   SELESAI
   DITOLAK
 }
@@ -119,6 +120,13 @@ model Case {
   dossierNumber String?
   isArchived Boolean @default(false)
   archivedAt DateTime?
+  closingNotes String? @db.Text
+  closingDocUrl String?
+  closingDocName String?
+  closingSubmittedAt DateTime?
+  closingRejectionReason String? @db.Text
+  closingApprovedAt DateTime?
+  closingApprovedById String?
   hearings CaseHearing[]
   expenses CaseExpense[]
   createdAt DateTime @default(now())

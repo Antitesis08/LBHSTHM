@@ -367,7 +367,7 @@ export default function AdminCaseActions({ caseData, consultants, paralegals = [
       )}
 
       {/* TAHAP 3: Kasus Telah DITUGASKAN / PROSES — Info Konsultan & Reassign */}
-      {['DITUGASKAN', 'PROSES', 'MENUNGGU_DOKUMEN'].includes(caseData.status) && (
+      {['DITUGASKAN', 'PROSES', 'MENUNGGU_DOKUMEN', 'MENUNGGU_VERIFIKASI_SEKRETARIS'].includes(caseData.status) && (
         <div style={{ background: '#fff', borderRadius: 12, border: '1px solid #e5e7eb', padding: 20, marginBottom: 20 }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
             <div>
